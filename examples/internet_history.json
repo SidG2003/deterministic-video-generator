@@ -1,0 +1,30 @@
+{
+  "title": "A Short History of the Internet",
+  "style": "midnight",
+  "seed": 3,
+  "fps": 30,
+  "beats": [
+    {
+      "id": "timeline",
+      "narration": "In just a few decades, the internet went from two connected machines to a device in every pocket.",
+      "hold": 1.2,
+      "elements": [
+        {"id": "title", "type": "text", "props": {"content": "A Short History of the Internet", "role": "subtitle", "weight": "BOLD"}},
+        {"id": "tl", "type": "timeline", "props": {"events": [
+          {"year": 1969, "label": "ARPANET: first two nodes connect"},
+          {"year": 1983, "label": "TCP/IP becomes the standard"},
+          {"year": 1991, "label": "The World Wide Web goes public"},
+          {"year": 2007, "label": "The smartphone era begins"}
+        ]}}
+      ],
+      "layout": {"slots": [
+        {"place": "top", "items": ["title"]},
+        {"place": "center", "arrange": "none", "items": ["tl"]}
+      ]},
+      "animations": [
+        [{"target": "title", "type": "write"}],
+        [{"target": "tl", "type": "reveal", "run_time": 3.5}]
+      ]
+    }
+  ]
+}
