@@ -73,6 +73,7 @@ Quality: `-ql` (480p, fast) · `-qm` (720p) · `-qh` (1080p) · `-qk` (4K)
 The Homebrew cask needs an admin password, so run it interactively in your terminal:
 ```bash
 brew install --cask basictex               # or: sudo installer -pkg /opt/homebrew/Caskroom/basictex/*/mactex-basictex-*.pkg -target /
+brew install dvisvgm                        # BasicTeX omits it; Manim needs it for DVI->SVG
 eval "$(/usr/libexec/path_helper)"          # add TeX to PATH in this shell
 sudo tlmgr update --self
 sudo tlmgr install standalone preview doublestroke physics wasysym ragged2e relsize
