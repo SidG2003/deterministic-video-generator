@@ -1,0 +1,50 @@
+{
+  "title": "Sine to Cosine",
+  "style": "midnight",
+  "seed": 8,
+  "fps": 30,
+  "beats": [
+    {
+      "id": "setup",
+      "narration": "We plot on a coordinate system.",
+      "hold": 0.5,
+      "elements": [
+        {"id": "title", "type": "text", "props": {"content": "From sine to cosine", "role": "subtitle", "weight": "BOLD"}},
+        {"id": "ax", "type": "axes", "props": {"x_range": [-5, 5, 1], "y_range": [-2, 2, 1], "x_length": 10, "y_length": 4.5}}
+      ],
+      "layout": {"slots": [
+        {"place": "top", "items": ["title"]},
+        {"place": "center", "items": ["ax"]}
+      ]},
+      "animations": [
+        [{"target": "title", "type": "write"}],
+        [{"target": "ax", "type": "create"}]
+      ]
+    },
+    {
+      "id": "plot",
+      "narration": "Here is the sine wave.",
+      "hold": 0.5,
+      "elements": [
+        {"id": "g1", "type": "graph", "props": {"axes": "ax", "expr": "sin(2*x)", "color": 1}}
+      ],
+      "animations": [
+        [{"target": "g1", "type": "create", "run_time": 1.2}],
+        [{"target": "g1", "type": "circumscribe"}]
+      ]
+    },
+    {
+      "id": "morph",
+      "narration": "Shift it a quarter turn and sine becomes cosine.",
+      "hold": 0.8,
+      "elements": [
+        {"id": "g2", "type": "graph", "props": {"axes": "ax", "expr": "cos(2*x)", "color": 2}}
+      ],
+      "animations": [
+        [{"target": "g1", "type": "transform", "to": "g2", "run_time": 1.5}],
+        [{"target": "ax", "type": "focus", "zoom": 0.55, "run_time": 1.0}],
+        [{"type": "reset_camera", "run_time": 1.0}]
+      ]
+    }
+  ]
+}
