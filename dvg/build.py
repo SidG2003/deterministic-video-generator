@@ -16,7 +16,7 @@ import glob
 import re
 from pathlib import Path
 
-from manim import Scene, tempconfig
+from manim import MovingCameraScene, tempconfig
 
 from .director import Director
 from .ir import load_video
@@ -34,7 +34,7 @@ def render(ir_path: str, quality: str = "l") -> str:
     style = get_style(video.style, video.seed)
     name = _slug(video.title)
 
-    class IRScene(Scene):
+    class IRScene(MovingCameraScene):
         def construct(self):
             Director(video, style).run(self)
 

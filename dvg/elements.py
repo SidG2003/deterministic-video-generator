@@ -11,6 +11,7 @@ from manim import (
     DOWN,
     LEFT,
     Arrow,
+    Axes,
     Circle,
     Dot,
     Line,
@@ -24,6 +25,7 @@ from manim import (
 )
 
 from .ir import Element
+from .mathexpr import compile_expr
 from .style import Style
 
 
@@ -117,7 +119,32 @@ def build_element(el: Element, style: Style) -> Mobject:
         m = MathTex(p["tex"], color=style.color(p.get("color")) if p.get("color") is not None else style.text_color)
         return m.scale(p.get("scale", 1.4))
 
+    if el.type == "axes":
+        return Axes(
+            x_range=p.get("x_range", [-5, 5, 1]),
+            y_range=p.get("y_range", [-3, 3, 1]),
+            x_length=p.get("x_length", 9),
+            y_length=p.get("y_length", 5),
+            axis_config={
+                "color": style.text_color,
+                "stroke_width": 2,
+                "include_tip": p.get("tips", True),
+            },
+        )
+
     raise ValueError(f"build_element cannot build type '{el.type}'")
+
+
+def build_graph(el: Element, registry: dict[str, Mobject], style: Style) -> Mobject:
+    """Plot a function on an already-positioned axes. The expression is compiled
+    via the safe evaluator (never eval'd)."""
+    p = el.props
+    axes = registry[p["axes"]]
+    func = compile_expr(p["expr"])
+    kwargs = {"color": style.color(p.get("color"))}
+    if "x_range" in p:
+        kwargs["x_range"] = p["x_range"]
+    return axes.plot(func, **kwargs)
 
 
 def build_timeline(el: Element, style: Style) -> VGroup:

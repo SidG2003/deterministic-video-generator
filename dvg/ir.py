@@ -20,16 +20,25 @@ import json
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from .mathexpr import ExprError, compile_expr
+
 # Element types that are positioned by *reference* to other elements, so they
 # must be built/placed AFTER the layout pass has positioned everything else.
-DEPENDENT_TYPES = {"connector"}
-ELEMENT_TYPES = {"text", "node", "dot", "connector", "card", "timeline", "shape", "math"}
+# graph depends on an already-built axes, so (like connector) it is built after layout
+DEPENDENT_TYPES = {"connector", "graph"}
+ELEMENT_TYPES = {
+    "text", "node", "dot", "connector", "card", "timeline", "shape", "math",
+    "axes", "graph",
+}
 ANIM_TYPES = {
     "write", "create", "fade_in", "fade_out", "grow", "move", "reveal",
     "transform", "replace", "morph_tex", "shift",
+    "indicate", "circumscribe", "flash", "focus", "reset_camera",
 }
 # animations that morph a source element INTO another element (need a valid `to`)
 MORPH_TYPES = {"transform", "replace", "morph_tex"}
+# animations that don't act on a specific element
+NO_TARGET_TYPES = {"reset_camera"}
 PLACES = {"top", "center", "bottom"}
 ARRANGES = {"stack", "row", "none"}
 
@@ -49,6 +58,7 @@ class Animation:
     to: str | None = None  # for move/transform/replace/morph_tex: destination id
     dx: float = 0.0  # for "shift"
     dy: float = 0.0  # for "shift"
+    zoom: float | None = None  # for "focus": camera scale factor (<1 zooms in)
 
 
 @dataclass
@@ -102,8 +112,9 @@ def _parse_beat(b: dict) -> Beat:
     steps = [
         [
             Animation(
-                a["target"], a["type"], a.get("run_time"), a.get("to"),
+                a.get("target", ""), a["type"], a.get("run_time"), a.get("to"),
                 float(a.get("dx", 0.0)), float(a.get("dy", 0.0)),
+                a.get("zoom"),
             )
             for a in step
         ]
@@ -139,9 +150,9 @@ def _validate(video: Video) -> None:
             beat_new[el.id] = el.type
         ids = {**available, **beat_new}
 
-        # connector endpoints and 'at' references must resolve
+        # connector endpoints, 'at', and 'axes' references must resolve
         for el in beat.elements:
-            for ref_key in ("from", "to", "at"):
+            for ref_key in ("from", "to", "at", "axes"):
                 ref = el.props.get(ref_key)
                 if ref is not None and ref not in ids:
                     raise IRError(
@@ -171,6 +182,16 @@ def _validate(video: Video) -> None:
                         raise IRError(
                             f"beat '{beat.id}': timeline '{el.id}' event needs 'year' and 'label'"
                         )
+            if el.type == "graph":
+                if "axes" not in el.props:
+                    raise IRError(f"beat '{beat.id}': graph '{el.id}' missing 'axes'")
+                if "expr" not in el.props:
+                    raise IRError(f"beat '{beat.id}': graph '{el.id}' missing 'expr'")
+                # Compile the untrusted expression now (fail-closed at load time).
+                try:
+                    compile_expr(el.props["expr"])
+                except ExprError as exc:
+                    raise IRError(f"beat '{beat.id}': graph '{el.id}' bad expr: {exc}") from exc
 
         # layout slots
         for slot in beat.layout.get("slots", []):
@@ -187,7 +208,7 @@ def _validate(video: Video) -> None:
             for a in step:
                 if a.type not in ANIM_TYPES:
                     raise IRError(f"beat '{beat.id}': unknown animation '{a.type}'")
-                if a.target not in ids:
+                if a.type not in NO_TARGET_TYPES and a.target not in ids:
                     raise IRError(f"beat '{beat.id}': animation targets unknown '{a.target}'")
                 if a.type in ({"move"} | MORPH_TYPES) and (a.to is None or a.to not in ids):
                     raise IRError(f"beat '{beat.id}': '{a.type}' on '{a.target}' needs valid 'to'")

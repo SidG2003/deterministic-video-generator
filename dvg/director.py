@@ -20,10 +20,13 @@ from __future__ import annotations
 import random
 
 from manim import (
+    Circumscribe,
     Create,
     FadeIn,
     FadeOut,
+    Flash,
     GrowFromCenter,
+    Indicate,
     LaggedStart,
     Mobject,
     ReplacementTransform,
@@ -34,7 +37,7 @@ from manim import (
     UP,
 )
 
-from .elements import build_connector, build_element
+from .elements import build_connector, build_element, build_graph
 from .ir import Animation, Beat, Video, DEPENDENT_TYPES
 from .layout import apply_layout, place_dependent
 from .style import Style
@@ -49,6 +52,8 @@ class Director:
         random.seed(self.video.seed)  # determinism hook for future generative bits
         scene.camera.background_color = self.style.bg
         self.canvas: dict[str, Mobject] = {}  # persists across all beats
+        # snapshot of the default camera frame, for reset_camera (MovingCameraScene)
+        self._home = scene.camera.frame.copy() if hasattr(scene.camera, "frame") else None
         for beat in self.video.beats:
             self._render_beat(scene, beat)
 
@@ -65,14 +70,16 @@ class Director:
 
         # 3. new dependent + anchored elements
         for el in beat.elements:
-            if el.type in DEPENDENT_TYPES:
+            if el.type == "connector":
                 canvas[el.id] = build_connector(el, canvas, self.style)
+            elif el.type == "graph":
+                canvas[el.id] = build_graph(el, canvas, self.style)
             else:
                 place_dependent(el.type, el.props, canvas[el.id], canvas)
 
         # 4. animation steps
         for step in beat.animations:
-            anims = [self._build_anim(a, canvas) for a in step]
+            anims = [self._build_anim(a, canvas, scene) for a in step]
             run_time = max((a.run_time for a in step if a.run_time), default=self.style.run_time)
             scene.play(*anims, run_time=run_time)
 
@@ -90,7 +97,9 @@ class Director:
             for i in beat.exit:
                 canvas.pop(i, None)
 
-    def _build_anim(self, a: Animation, registry: dict[str, Mobject]):
+    def _build_anim(self, a: Animation, registry: dict[str, Mobject], scene: Scene):
+        if a.type == "reset_camera":
+            return scene.camera.frame.animate.become(self._home)
         m = registry[a.target]
         if a.type == "write":
             return Write(m)
@@ -118,4 +127,13 @@ class Director:
         if a.type == "morph_tex":
             # term-by-term equation morph (both must be `math` elements)
             return TransformMatchingTex(m, registry[a.to])
+        if a.type == "indicate":
+            return Indicate(m, color=self.style.accent)
+        if a.type == "circumscribe":
+            return Circumscribe(m, color=self.style.accent)
+        if a.type == "flash":
+            return Flash(m, color=self.style.accent)
+        if a.type == "focus":
+            zoom = a.zoom if a.zoom is not None else 0.6
+            return scene.camera.frame.animate.scale(zoom).move_to(m.get_center())
         raise ValueError(f"unknown animation type '{a.type}'")
