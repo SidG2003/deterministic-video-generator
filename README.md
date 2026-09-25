@@ -29,6 +29,26 @@ python -m dvg.build examples/cache_explainer.json --quality l
 ```
 Verified deterministic: same IR + seed → byte-identical video frames.
 
+## Generate a video from a topic (the AI authoring step)
+
+An LLM (Claude) writes the IR; the renderer stays deterministic. Only this step
+uses AI, and a **validate-and-repair loop** checks each candidate against the IR
+contract and feeds the validator's error back to the model until it's valid — so
+generation can never produce something that renders broken.
+
+```bash
+export ANTHROPIC_API_KEY=...        # or `ant auth login`
+python -m dvg.generate "How does a DNS lookup work?" --style midnight --render
+```
+- `dvg/prompt.py` — the pedagogy + schema system prompt (self-checks that it
+  documents every element/animation the renderer supports).
+- `dvg/generate.py` — the LLM call + repair loop (`--out`, `--render`, `--model`).
+- Default model `claude-opus-5`; system prompt is prompt-cached across runs.
+- Graph `expr` strings are evaluated by a safe AST interpreter (`dvg/mathexpr.py`),
+  never `eval` — the IR is treated as untrusted input.
+- Workflow: generate IR once (AI) → optionally hand-edit the JSON → render
+  (deterministic, cheap, repeatable).
+
 ### Phase 0 spike (kept for reference)
 - `scenes/concept_explainer.py` — concept explainer, hand-coded
 - `scenes/history_timeline.py` — history as a timeline (shows the overlap bug the
@@ -111,6 +131,6 @@ python -m dvg.build examples/pythagoras.json --quality l
 - [x] Phase 1b: timeline/card (overlap-safe), shape/math elements, transform anims
 - [x] Phase 1c: persistent canvas (object identity across beats) + shift/exit/clear
 - [x] Phase 1d: axes/graph (safe f(x) eval), emphasis anims, camera moves
-- [ ] Phase 1e: narration (manim-voiceover) + audio-driven timing
-- [ ] Phase 2: LLM authoring front-end (topic → IR JSON); video stays deterministic
-- [ ] Phase 3: polish — captions, music, branding, render queue
+- [x] Phase 2: LLM authoring front-end (topic → IR JSON) + validate-repair loop
+- [ ] Phase 3: narration (manim-voiceover) + audio-driven timing
+- [ ] Phase 4: polish — captions, music, branding, render queue

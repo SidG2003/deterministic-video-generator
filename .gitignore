@@ -1,5 +1,6 @@
 .venv/
 media/
 output/
+examples/generated/
 __pycache__/
 *.pyc
