@@ -1,0 +1,70 @@
+{
+  "title": "How a Cache Works",
+  "style": "midnight",
+  "seed": 7,
+  "fps": 30,
+  "beats": [
+    {
+      "id": "intro",
+      "narration": "Here's how a cache works, in about thirty seconds.",
+      "hold": 0.6,
+      "elements": [
+        {"id": "title", "type": "text", "props": {"content": "How a Cache Works", "role": "title", "weight": "BOLD"}},
+        {"id": "subtitle", "type": "text", "props": {"content": "a 30-second explainer", "role": "subtitle", "slant": "ITALIC"}}
+      ],
+      "layout": {"slots": [
+        {"place": "center", "arrange": "stack", "gap": 0.4, "items": ["title", "subtitle"]}
+      ]},
+      "animations": [
+        [{"target": "title", "type": "write"}],
+        [{"target": "subtitle", "type": "fade_in"}]
+      ]
+    },
+    {
+      "id": "why",
+      "narration": "A cache stores the results of slow work, serves repeats instantly, and trades a little memory for a lot of speed.",
+      "hold": 0.6,
+      "elements": [
+        {"id": "heading", "type": "text", "props": {"content": "Why caches?", "role": "subtitle", "color": 2}},
+        {"id": "b1", "type": "text", "props": {"content": "•  Store results of slow work", "role": "body"}},
+        {"id": "b2", "type": "text", "props": {"content": "•  Serve repeats instantly", "role": "body"}},
+        {"id": "b3", "type": "text", "props": {"content": "•  Trade memory for speed", "role": "body"}}
+      ],
+      "layout": {"slots": [
+        {"place": "top", "items": ["heading"]},
+        {"place": "center", "arrange": "stack", "align": "left", "gap": 0.45, "items": ["b1", "b2", "b3"]}
+      ]},
+      "animations": [
+        [{"target": "heading", "type": "fade_in"}],
+        [{"target": "b1", "type": "fade_in"}],
+        [{"target": "b2", "type": "fade_in"}],
+        [{"target": "b3", "type": "fade_in"}]
+      ]
+    },
+    {
+      "id": "flow",
+      "narration": "A request checks the cache first. On a hit, it returns immediately, never touching the database.",
+      "hold": 0.8,
+      "elements": [
+        {"id": "user", "type": "node", "props": {"label": "User", "color": 0}},
+        {"id": "cache", "type": "node", "props": {"label": "Cache", "color": 2}},
+        {"id": "db", "type": "node", "props": {"label": "DB", "color": 1}},
+        {"id": "c1", "type": "connector", "props": {"from": "user", "to": "cache"}},
+        {"id": "c2", "type": "connector", "props": {"from": "cache", "to": "db"}},
+        {"id": "packet", "type": "dot", "props": {"color": "#e8ecf1", "at": "user"}},
+        {"id": "hit", "type": "text", "props": {"content": "cache hit!", "role": "label", "at": "cache"}}
+      ],
+      "layout": {"slots": [
+        {"place": "center", "arrange": "row", "gap": 2.2, "items": ["user", "cache", "db"]}
+      ]},
+      "animations": [
+        [{"target": "user", "type": "create"}, {"target": "cache", "type": "create"}, {"target": "db", "type": "create"}],
+        [{"target": "c1", "type": "create"}, {"target": "c2", "type": "create"}],
+        [{"target": "packet", "type": "fade_in"}],
+        [{"target": "packet", "type": "move", "to": "cache", "run_time": 0.8}],
+        [{"target": "hit", "type": "write"}],
+        [{"target": "packet", "type": "move", "to": "user", "run_time": 0.8}]
+      ]
+    }
+  ]
+}
