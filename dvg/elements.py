@@ -14,9 +14,12 @@ from manim import (
     Circle,
     Dot,
     Line,
+    MathTex,
     Mobject,
+    Square,
     SurroundingRectangle,
     Text,
+    Triangle,
     VGroup,
 )
 
@@ -96,6 +99,23 @@ def build_element(el: Element, style: Style) -> Mobject:
 
     if el.type == "timeline":
         return build_timeline(el, style)
+
+    if el.type == "shape":
+        kind = p.get("kind", "square")
+        size = p.get("size", 1.2)
+        col = style.color(p.get("color"))
+        if kind == "circle":
+            m = Circle(radius=size / 2)
+        elif kind == "triangle":
+            m = Triangle().scale(size / 2)
+        else:
+            m = Square(side_length=size)
+        return m.set_stroke(col, width=3).set_fill(col, opacity=0.18)
+
+    if el.type == "math":
+        # requires a LaTeX distribution (see README). MathTex renders TeX.
+        m = MathTex(p["tex"], color=style.color(p.get("color")) if p.get("color") is not None else style.text_color)
+        return m.scale(p.get("scale", 1.4))
 
     raise ValueError(f"build_element cannot build type '{el.type}'")
 

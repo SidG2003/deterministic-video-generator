@@ -23,8 +23,13 @@ from pathlib import Path
 # Element types that are positioned by *reference* to other elements, so they
 # must be built/placed AFTER the layout pass has positioned everything else.
 DEPENDENT_TYPES = {"connector"}
-ELEMENT_TYPES = {"text", "node", "dot", "connector", "card", "timeline"}
-ANIM_TYPES = {"write", "create", "fade_in", "fade_out", "grow", "move", "reveal"}
+ELEMENT_TYPES = {"text", "node", "dot", "connector", "card", "timeline", "shape", "math"}
+ANIM_TYPES = {
+    "write", "create", "fade_in", "fade_out", "grow", "move", "reveal",
+    "transform", "replace", "morph_tex",
+}
+# animations that morph a source element INTO another element (need a valid `to`)
+MORPH_TYPES = {"transform", "replace", "morph_tex"}
 PLACES = {"top", "center", "bottom"}
 ARRANGES = {"stack", "row", "none"}
 
@@ -135,6 +140,12 @@ def _validate(video: Video) -> None:
                         )
             if el.type == "card" and "content" not in el.props:
                 raise IRError(f"beat '{beat.id}': card '{el.id}' missing 'content'")
+            if el.type == "math" and "tex" not in el.props:
+                raise IRError(f"beat '{beat.id}': math '{el.id}' missing 'tex'")
+            if el.type == "shape" and el.props.get("kind", "square") not in {
+                "square", "circle", "triangle"
+            }:
+                raise IRError(f"beat '{beat.id}': shape '{el.id}' has unknown kind")
             if el.type == "timeline":
                 events = el.props.get("events")
                 if not isinstance(events, list) or not events:
@@ -162,5 +173,5 @@ def _validate(video: Video) -> None:
                     raise IRError(f"beat '{beat.id}': unknown animation '{a.type}'")
                 if a.target not in ids:
                     raise IRError(f"beat '{beat.id}': animation targets unknown '{a.target}'")
-                if a.type == "move" and (a.to is None or a.to not in ids):
-                    raise IRError(f"beat '{beat.id}': move '{a.target}' needs valid 'to'")
+                if a.type in ({"move"} | MORPH_TYPES) and (a.to is None or a.to not in ids):
+                    raise IRError(f"beat '{beat.id}': '{a.type}' on '{a.target}' needs valid 'to'")

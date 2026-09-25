@@ -20,7 +20,10 @@ from manim import (
     GrowFromCenter,
     LaggedStart,
     Mobject,
+    ReplacementTransform,
     Scene,
+    Transform,
+    TransformMatchingTex,
     Write,
     UP,
 )
@@ -88,4 +91,13 @@ class Director:
         if a.type == "reveal":
             # stagger a composite element's parts (e.g. timeline stations)
             return LaggedStart(*[FadeIn(part) for part in m], lag_ratio=0.35)
+        if a.type == "transform":
+            # morph source into target's shape; source mobject persists
+            return Transform(m, registry[a.to])
+        if a.type == "replace":
+            # morph and hand identity to the target mobject
+            return ReplacementTransform(m, registry[a.to])
+        if a.type == "morph_tex":
+            # term-by-term equation morph (both must be `math` elements)
+            return TransformMatchingTex(m, registry[a.to])
         raise ValueError(f"unknown animation type '{a.type}'")
