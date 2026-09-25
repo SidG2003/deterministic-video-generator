@@ -18,6 +18,7 @@ from manim import (
     FadeIn,
     FadeOut,
     GrowFromCenter,
+    LaggedStart,
     Mobject,
     Scene,
     Write,
@@ -84,4 +85,7 @@ class Director:
             return GrowFromCenter(m)
         if a.type == "move":
             return m.animate.move_to(registry[a.to].get_center())
+        if a.type == "reveal":
+            # stagger a composite element's parts (e.g. timeline stations)
+            return LaggedStart(*[FadeIn(part) for part in m], lag_ratio=0.35)
         raise ValueError(f"unknown animation type '{a.type}'")
