@@ -8,6 +8,7 @@
       "id": "intro",
       "narration": "Here's how a cache works, in about thirty seconds.",
       "hold": 0.6,
+      "clear": true,
       "elements": [
         {"id": "title", "type": "text", "props": {"content": "How a Cache Works", "role": "title", "weight": "BOLD"}},
         {"id": "subtitle", "type": "text", "props": {"content": "a 30-second explainer", "role": "subtitle", "slant": "ITALIC"}}
@@ -24,6 +25,7 @@
       "id": "why",
       "narration": "A cache stores the results of slow work, serves repeats instantly, and trades a little memory for a lot of speed.",
       "hold": 0.6,
+      "clear": true,
       "elements": [
         {"id": "heading", "type": "text", "props": {"content": "Why caches?", "role": "subtitle", "color": 2}},
         {"id": "b1", "type": "text", "props": {"content": "•  Store results of slow work", "role": "body"}},

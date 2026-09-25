@@ -1,0 +1,54 @@
+{
+  "title": "Persistent Canvas",
+  "style": "midnight",
+  "seed": 5,
+  "fps": 30,
+  "beats": [
+    {
+      "id": "introduce",
+      "narration": "We start with one idea on the canvas.",
+      "hold": 0.6,
+      "elements": [
+        {"id": "title", "type": "text", "props": {"content": "One canvas, many beats", "role": "subtitle", "weight": "BOLD"}},
+        {"id": "sq", "type": "shape", "props": {"kind": "square", "size": 2.0, "color": 0}}
+      ],
+      "layout": {"slots": [
+        {"place": "top", "items": ["title"]},
+        {"place": "center", "items": ["sq"]}
+      ]},
+      "animations": [
+        [{"target": "title", "type": "write"}],
+        [{"target": "sq", "type": "create"}]
+      ]
+    },
+    {
+      "id": "augment",
+      "narration": "The title and shape persist while we slide the square aside and add a note.",
+      "hold": 0.6,
+      "elements": [
+        {"id": "note", "type": "card", "props": {"content": "the square is still the same object — it never left the canvas", "max_width": 6.0}}
+      ],
+      "layout": {"slots": [
+        {"place": "bottom", "items": ["note"]}
+      ]},
+      "animations": [
+        [{"target": "sq", "type": "shift", "dx": -2.5, "run_time": 0.8}],
+        [{"target": "note", "type": "fade_in"}]
+      ]
+    },
+    {
+      "id": "morph",
+      "narration": "And that same persistent square morphs in place.",
+      "hold": 1.0,
+      "elements": [
+        {"id": "ci", "type": "shape", "props": {"kind": "circle", "size": 2.2, "color": 1}}
+      ],
+      "layout": {"slots": [
+        {"place": "center", "items": ["ci"], "shift": [-2.5, 0]}
+      ]},
+      "animations": [
+        [{"target": "sq", "type": "transform", "to": "ci", "run_time": 1.2}]
+      ]
+    }
+  ]
+}
