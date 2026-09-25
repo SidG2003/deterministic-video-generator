@@ -65,9 +65,16 @@ Quality: `-ql` (480p, fast) · `-qm` (720p) · `-qh` (1080p) · `-qk` (4K)
 
 ## IR vocabulary
 - **Elements:** `text`, `node`, `dot`, `connector`, `card`, `timeline`, `shape`,
-  `math` (`math` needs LaTeX — see below)
+  `math`, `axes`, `graph` (`math` needs LaTeX — see below)
 - **Animations:** `write`, `create`, `fade_in`, `fade_out`, `grow`, `move`,
-  `shift`, `reveal`, `transform`, `replace`, `morph_tex` (`morph_tex` needs LaTeX)
+  `shift`, `reveal`, `transform`, `replace`, `morph_tex`, `indicate`,
+  `circumscribe`, `flash`, `focus`, `reset_camera` (`morph_tex` needs LaTeX)
+
+A `graph` plots `f(x)` on an `axes`. The function is written as a string
+(`"sin(2*x)"`) and evaluated by a safe AST-whitelisted interpreter in
+`dvg/mathexpr.py` — never `eval`/`exec`, since the IR is untrusted input. Two
+graphs on the same axes can `transform` into each other (a curve deforming —
+the signature 3b1b move). `focus`/`reset_camera` pan-and-zoom the camera.
 
 ## Persistent canvas
 The canvas (id → mobject) persists across the whole video. Element ids are
@@ -103,6 +110,7 @@ python -m dvg.build examples/pythagoras.json --quality l
 - [x] Phase 1a: IR schema + layout + style engines + end-to-end render from JSON
 - [x] Phase 1b: timeline/card (overlap-safe), shape/math elements, transform anims
 - [x] Phase 1c: persistent canvas (object identity across beats) + shift/exit/clear
-- [ ] Phase 1d: narration (manim-voiceover) + audio-driven timing
+- [x] Phase 1d: axes/graph (safe f(x) eval), emphasis anims, camera moves
+- [ ] Phase 1e: narration (manim-voiceover) + audio-driven timing
 - [ ] Phase 2: LLM authoring front-end (topic → IR JSON); video stays deterministic
 - [ ] Phase 3: polish — captions, music, branding, render queue
