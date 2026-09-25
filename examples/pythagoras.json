@@ -1,0 +1,27 @@
+{
+  "title": "Pythagorean Theorem",
+  "style": "midnight",
+  "seed": 2,
+  "fps": 30,
+  "beats": [
+    {
+      "id": "eq",
+      "narration": "The same relationship, rearranged.",
+      "hold": 1.2,
+      "elements": [
+        {"id": "title", "type": "text", "props": {"content": "The Pythagorean Theorem", "role": "subtitle", "weight": "BOLD"}},
+        {"id": "eq1", "type": "math", "props": {"tex": "a^2 + b^2 = c^2"}},
+        {"id": "eq2", "type": "math", "props": {"tex": "c^2 = a^2 + b^2"}}
+      ],
+      "layout": {"slots": [
+        {"place": "top", "items": ["title"]},
+        {"place": "center", "items": ["eq1"]}
+      ]},
+      "animations": [
+        [{"target": "title", "type": "write"}],
+        [{"target": "eq1", "type": "write"}],
+        [{"target": "eq1", "type": "morph_tex", "to": "eq2", "run_time": 1.5}]
+      ]
+    }
+  ]
+}

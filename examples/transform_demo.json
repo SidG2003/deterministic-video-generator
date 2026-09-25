@@ -1,0 +1,29 @@
+{
+  "title": "Transform Demo",
+  "style": "midnight",
+  "seed": 1,
+  "fps": 30,
+  "beats": [
+    {
+      "id": "morph",
+      "narration": "One shape flows continuously into the next.",
+      "hold": 1.0,
+      "elements": [
+        {"id": "title", "type": "text", "props": {"content": "Continuous transformation", "role": "subtitle", "weight": "BOLD"}},
+        {"id": "sq", "type": "shape", "props": {"kind": "square", "size": 2.2, "color": 0}},
+        {"id": "ci", "type": "shape", "props": {"kind": "circle", "size": 2.4, "color": 1}},
+        {"id": "tri", "type": "shape", "props": {"kind": "triangle", "size": 2.6, "color": 2}}
+      ],
+      "layout": {"slots": [
+        {"place": "top", "items": ["title"]},
+        {"place": "center", "items": ["sq"]}
+      ]},
+      "animations": [
+        [{"target": "title", "type": "write"}],
+        [{"target": "sq", "type": "create"}],
+        [{"target": "sq", "type": "transform", "to": "ci", "run_time": 1.0}],
+        [{"target": "sq", "type": "transform", "to": "tri", "run_time": 1.0}]
+      ]
+    }
+  ]
+}
