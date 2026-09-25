@@ -45,6 +45,11 @@ beat = {
   (wipe all) or "exit": ["id", ...] (fade some). Use continuity (persist + move/
   transform) for flowing explanations; use "clear": true for hard slide-style cuts.
 - Reference only ids declared in the same or an earlier beat.
+- OVERLAP RULE: the layout engine only prevents overlap WITHIN a single beat. A
+  persisted object from an earlier beat can collide with a new element placed in
+  the same band (e.g. a new centered formula over a still-present centered graph).
+  Before placing a new element where a persisted object sits, either "clear": true
+  / "exit" the old one, or place the new element in a free band (top/bottom).
 
 # Elements (props)
 - text:      {content, role: "title"|"subtitle"|"body"|"label", weight: "NORMAL"|"BOLD",
