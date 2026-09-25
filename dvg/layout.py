@@ -42,6 +42,10 @@ def apply_layout(layout: dict, registry: dict[str, Mobject]) -> None:
         else:
             group.move_to(ORIGIN)
 
+        shift = slot.get("shift")  # optional [dx, dy] fine-tuning after placement
+        if shift:
+            group.shift([shift[0], shift[1], 0])
+
 
 def place_dependent(el_type: str, props: dict, mob: Mobject,
                     registry: dict[str, Mobject]) -> None:

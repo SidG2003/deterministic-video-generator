@@ -26,7 +26,7 @@ DEPENDENT_TYPES = {"connector"}
 ELEMENT_TYPES = {"text", "node", "dot", "connector", "card", "timeline", "shape", "math"}
 ANIM_TYPES = {
     "write", "create", "fade_in", "fade_out", "grow", "move", "reveal",
-    "transform", "replace", "morph_tex",
+    "transform", "replace", "morph_tex", "shift",
 }
 # animations that morph a source element INTO another element (need a valid `to`)
 MORPH_TYPES = {"transform", "replace", "morph_tex"}
@@ -46,7 +46,9 @@ class Animation:
     target: str
     type: str
     run_time: float | None = None
-    to: str | None = None  # for "move": destination element id
+    to: str | None = None  # for move/transform/replace/morph_tex: destination id
+    dx: float = 0.0  # for "shift"
+    dy: float = 0.0  # for "shift"
 
 
 @dataclass
@@ -57,6 +59,8 @@ class Beat:
     animations: list[list[Animation]]
     narration: str | None = None
     hold: float = 0.5
+    clear: bool = False  # fade everything out at beat end (slideshow cut)
+    exit: list[str] = field(default_factory=list)  # fade out just these ids
 
 
 @dataclass
@@ -94,9 +98,15 @@ def _parse_video(data: dict) -> Video:
 
 
 def _parse_beat(b: dict) -> Beat:
-    elements = [Element(e["id"], e["type"], e.get("props", {})) for e in b["elements"]]
+    elements = [Element(e["id"], e["type"], e.get("props", {})) for e in b.get("elements", [])]
     steps = [
-        [Animation(a["target"], a["type"], a.get("run_time"), a.get("to")) for a in step]
+        [
+            Animation(
+                a["target"], a["type"], a.get("run_time"), a.get("to"),
+                float(a.get("dx", 0.0)), float(a.get("dy", 0.0)),
+            )
+            for a in step
+        ]
         for step in b.get("animations", [])
     ]
     return Beat(
@@ -106,6 +116,8 @@ def _parse_beat(b: dict) -> Beat:
         animations=steps,
         narration=b.get("narration"),
         hold=float(b.get("hold", 0.5)),
+        clear=bool(b.get("clear", False)),
+        exit=list(b.get("exit", [])),
     )
 
 
@@ -114,14 +126,18 @@ def _validate(video: Video) -> None:
     if not video.beats:
         raise IRError("video has no beats")
 
+    # ids are video-global stable handles (persistent canvas). `available` grows
+    # cumulatively so a beat can reference anything declared this beat or earlier.
+    available: dict[str, str] = {}
     for beat in video.beats:
-        ids: dict[str, str] = {}
+        beat_new: dict[str, str] = {}
         for el in beat.elements:
-            if el.id in ids:
+            if el.id in available or el.id in beat_new:
                 raise IRError(f"beat '{beat.id}': duplicate element id '{el.id}'")
             if el.type not in ELEMENT_TYPES:
                 raise IRError(f"beat '{beat.id}': unknown element type '{el.type}'")
-            ids[el.id] = el.type
+            beat_new[el.id] = el.type
+        ids = {**available, **beat_new}
 
         # connector endpoints and 'at' references must resolve
         for el in beat.elements:
@@ -175,3 +191,10 @@ def _validate(video: Video) -> None:
                     raise IRError(f"beat '{beat.id}': animation targets unknown '{a.target}'")
                 if a.type in ({"move"} | MORPH_TYPES) and (a.to is None or a.to not in ids):
                     raise IRError(f"beat '{beat.id}': '{a.type}' on '{a.target}' needs valid 'to'")
+
+        # exit list must reference live objects
+        for eid in beat.exit:
+            if eid not in ids:
+                raise IRError(f"beat '{beat.id}': exit references unknown '{eid}'")
+
+        available = ids
