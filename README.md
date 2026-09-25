@@ -67,7 +67,19 @@ Quality: `-ql` (480p, fast) · `-qm` (720p) · `-qh` (1080p) · `-qk` (4K)
 - **Elements:** `text`, `node`, `dot`, `connector`, `card`, `timeline`, `shape`,
   `math` (`math` needs LaTeX — see below)
 - **Animations:** `write`, `create`, `fade_in`, `fade_out`, `grow`, `move`,
-  `reveal`, `transform`, `replace`, `morph_tex` (`morph_tex` needs LaTeX)
+  `shift`, `reveal`, `transform`, `replace`, `morph_tex` (`morph_tex` needs LaTeX)
+
+## Persistent canvas
+The canvas (id → mobject) persists across the whole video. Element ids are
+video-global stable handles: a beat declares only the objects it *introduces*,
+and later beats reference existing objects by id (in `move`/`shift`/`transform`/
+`fade_out`). Objects persist by default; a beat removes them explicitly:
+- `"clear": true` — fade everything out at beat end (slideshow cut)
+- `"exit": ["id", ...]` — fade out just these
+
+Use `transform` (not `replace`) to morph a persistent object in place — it keeps
+the source's identity so later beats can keep referencing it. See
+`examples/continuity_demo.json`.
 
 ## LaTeX (for `math` / `morph_tex`)
 The Homebrew cask needs an admin password, so run it interactively in your terminal:
@@ -90,6 +102,7 @@ python -m dvg.build examples/pythagoras.json --quality l
 - [x] Phase 0: spike — render both content styles
 - [x] Phase 1a: IR schema + layout + style engines + end-to-end render from JSON
 - [x] Phase 1b: timeline/card (overlap-safe), shape/math elements, transform anims
-- [ ] Phase 1c: narration (manim-voiceover) + audio-driven timing
+- [x] Phase 1c: persistent canvas (object identity across beats) + shift/exit/clear
+- [ ] Phase 1d: narration (manim-voiceover) + audio-driven timing
 - [ ] Phase 2: LLM authoring front-end (topic → IR JSON); video stays deterministic
 - [ ] Phase 3: polish — captions, music, branding, render queue
