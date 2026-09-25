@@ -87,7 +87,11 @@ class IRError(ValueError):
 
 
 def load_video(path: str | Path) -> Video:
-    data = json.loads(Path(path).read_text())
+    return validate_ir(json.loads(Path(path).read_text()))
+
+
+def validate_ir(data: dict) -> Video:
+    """Parse and validate an in-memory IR document (the generator's contract)."""
     try:
         video = _parse_video(data)
     except (KeyError, TypeError) as exc:
