@@ -63,15 +63,32 @@ manim -pql scenes/concept_explainer.py ConceptExplainer   # -ql draft/480p, -p a
 ```
 Quality: `-ql` (480p, fast) · `-qm` (720p) · `-qh` (1080p) · `-qk` (4K)
 
+## IR vocabulary
+- **Elements:** `text`, `node`, `dot`, `connector`, `card`, `timeline`, `shape`,
+  `math` (`math` needs LaTeX — see below)
+- **Animations:** `write`, `create`, `fade_in`, `fade_out`, `grow`, `move`,
+  `reveal`, `transform`, `replace`, `morph_tex` (`morph_tex` needs LaTeX)
+
+## LaTeX (for `math` / `morph_tex`)
+The Homebrew cask needs an admin password, so run it interactively in your terminal:
+```bash
+brew install --cask basictex               # or: sudo installer -pkg /opt/homebrew/Caskroom/basictex/*/mactex-basictex-*.pkg -target /
+eval "$(/usr/libexec/path_helper)"          # add TeX to PATH in this shell
+sudo tlmgr update --self
+sudo tlmgr install standalone preview doublestroke physics wasysym ragged2e relsize
+```
+Then the equation demo renders:
+```bash
+python -m dvg.build examples/pythagoras.json --quality l
+```
+
 ## Not yet installed
-- **LaTeX** — only needed for `MathTex`/`Tex` (real math typesetting). Add with
-  `brew install --cask basictex` when required.
-- **manim-voiceover** — TTS + auto-timed narration. Add in Phase 1.
+- **manim-voiceover** — TTS + auto-timed narration. Planned for Phase 1c.
 
 ## Roadmap
 - [x] Phase 0: spike — render both content styles
 - [x] Phase 1a: IR schema + layout + style engines + end-to-end render from JSON
-- [ ] Phase 1b: expand element/layout vocabulary (timeline, cards, images); style variants
+- [x] Phase 1b: timeline/card (overlap-safe), shape/math elements, transform anims
 - [ ] Phase 1c: narration (manim-voiceover) + audio-driven timing
 - [ ] Phase 2: LLM authoring front-end (topic → IR JSON); video stays deterministic
 - [ ] Phase 3: polish — captions, music, branding, render queue
