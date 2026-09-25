@@ -23,8 +23,8 @@ from pathlib import Path
 # Element types that are positioned by *reference* to other elements, so they
 # must be built/placed AFTER the layout pass has positioned everything else.
 DEPENDENT_TYPES = {"connector"}
-ELEMENT_TYPES = {"text", "node", "dot", "connector"}
-ANIM_TYPES = {"write", "create", "fade_in", "fade_out", "grow", "move"}
+ELEMENT_TYPES = {"text", "node", "dot", "connector", "card", "timeline"}
+ANIM_TYPES = {"write", "create", "fade_in", "fade_out", "grow", "move", "reveal"}
 PLACES = {"top", "center", "bottom"}
 ARRANGES = {"stack", "row", "none"}
 
@@ -132,6 +132,17 @@ def _validate(video: Video) -> None:
                     if req not in el.props:
                         raise IRError(
                             f"beat '{beat.id}': connector '{el.id}' missing '{req}'"
+                        )
+            if el.type == "card" and "content" not in el.props:
+                raise IRError(f"beat '{beat.id}': card '{el.id}' missing 'content'")
+            if el.type == "timeline":
+                events = el.props.get("events")
+                if not isinstance(events, list) or not events:
+                    raise IRError(f"beat '{beat.id}': timeline '{el.id}' needs non-empty 'events'")
+                for ev in events:
+                    if "year" not in ev or "label" not in ev:
+                        raise IRError(
+                            f"beat '{beat.id}': timeline '{el.id}' event needs 'year' and 'label'"
                         )
 
         # layout slots
