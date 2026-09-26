@@ -103,15 +103,38 @@ def _slug(text: str) -> str:
     return re.sub(r"[^a-z0-9]+", "_", text.lower()).strip("_")[:60] or "video"
 
 
+def _run_freeform(args) -> None:
+    from .freeform import generate_freeform
+
+    print(f"Generating freeform Manim scene for: {args.topic!r} … (sandboxed, may take a bit)")
+    try:
+        code, video = generate_freeform(args.topic, model=args.model, quality=args.quality)
+    except Exception as exc:
+        raise SystemExit(f"Freeform generation failed: {exc}")
+
+    out = Path(args.out) if args.out else Path("examples/generated") / f"{_slug(args.topic)}.py"
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(code)
+    print(f"Wrote scene code: {out}")
+    print(f"Rendered: {video}")
+
+
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Generate an explainer-video IR from a topic.")
+    parser = argparse.ArgumentParser(description="Generate an explainer-video from a topic.")
     parser.add_argument("topic", help="the concept/story to explain")
+    parser.add_argument("--mode", choices=["constrained", "freeform"], default="constrained",
+                        help="constrained = safe IR vocabulary (default); "
+                             "freeform = LLM writes full Manim code, sandboxed")
     parser.add_argument("--style", default="midnight", choices=["midnight", "paper"])
     parser.add_argument("--model", default=DEFAULT_MODEL, help="Claude model id")
     parser.add_argument("--out", help="path to write the IR JSON (default: examples/generated/<slug>.json)")
-    parser.add_argument("--render", action="store_true", help="render the video after generating")
+    parser.add_argument("--render", action="store_true", help="render the video after generating (constrained mode)")
     parser.add_argument("--quality", choices=["l", "m", "h", "k"], default="l")
     args = parser.parse_args()
+
+    if args.mode == "freeform":
+        _run_freeform(args)
+        return
 
     print(f"Generating IR for: {args.topic!r} …")
     try:
