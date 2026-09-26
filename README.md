@@ -49,6 +49,23 @@ python -m dvg.generate "How does a DNS lookup work?" --style midnight --render
 - Workflow: generate IR once (AI) → optionally hand-edit the JSON → render
   (deterministic, cheap, repeatable).
 
+### Two modes: `--mode constrained` (default) vs `--mode freeform`
+- **constrained** (default): the LLM writes safe IR against our vocabulary;
+  validation is static/instant; rendering is deterministic; layout can't overlap.
+- **freeform**: the LLM writes a COMPLETE Manim scene (Python), which is
+  sandboxed, rendered, verified, and repaired on failure. Max expressiveness,
+  but crashes/off-screen/overlaps are possible and "validation" means actually
+  executing + rendering. Use to explore the ceiling.
+```bash
+python -m dvg.generate "How does gradient descent work?" --mode freeform
+```
+The freeform sandbox ([dvg/freeform.py](dvg/freeform.py)) is **spike-level**: an
+AST allowlist scan (only manim/numpy/math/random imports; no os/eval/open/dunder),
+a separate subprocess, a wall-clock timeout, and an RLIMIT_CPU backstop. This
+guards against *accidents* in your own LLM's code — it is NOT a hardened jail. If
+topics/code ever come from untrusted users, run it inside a network-isolated
+container (Docker/gVisor) with a read-only filesystem instead.
+
 ### Phase 0 spike (kept for reference)
 - `scenes/concept_explainer.py` — concept explainer, hand-coded
 - `scenes/history_timeline.py` — history as a timeline (shows the overlap bug the
@@ -132,5 +149,6 @@ python -m dvg.build examples/pythagoras.json --quality l
 - [x] Phase 1c: persistent canvas (object identity across beats) + shift/exit/clear
 - [x] Phase 1d: axes/graph (safe f(x) eval), emphasis anims, camera moves
 - [x] Phase 2: LLM authoring front-end (topic → IR JSON) + validate-repair loop
+- [x] Phase 2b: freeform mode (LLM writes full Manim code) + sandbox/verify/repair
 - [ ] Phase 3: narration (manim-voiceover) + audio-driven timing
 - [ ] Phase 4: polish — captions, music, branding, render queue
