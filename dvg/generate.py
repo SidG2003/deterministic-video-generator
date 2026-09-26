@@ -24,6 +24,15 @@ from .prompt import build_system_prompt
 DEFAULT_MODEL = "claude-opus-5"
 _FENCE = re.compile(r"^```(?:json)?\s*|\s*```$", re.MULTILINE)
 
+# Length is prompt-driven (duration is emergent from beats/animations/holds).
+# Kept in the per-request user message so the cached system prompt stays stable.
+LENGTH_HINTS = {
+    "short": "Target length ~20-30 seconds: tight, 3-4 beats/sections.",
+    "medium": "Target length ~45-70 seconds: 5-6 beats/sections with clear pacing.",
+    "long": "Target length ~90-150 seconds: thorough, 6-9 beats/sections; build the "
+            "idea in depth, one step at a time, with slightly longer pauses (holds/waits).",
+}
+
 
 class GenerationError(RuntimeError):
     """Raised when generation fails to produce valid IR within the repair budget."""
@@ -51,6 +60,7 @@ def generate_ir(
     style: str = "midnight",
     model: str = DEFAULT_MODEL,
     max_repairs: int = 3,
+    length: str = "medium",
     client=None,
 ) -> dict:
     """Generate and validate an IR document for `topic`. Retries with the
@@ -66,7 +76,8 @@ def generate_ir(
     ask = (
         f"Topic: {topic.strip()}\n"
         f"Style: {style}\n"
-        "Produce the IR JSON for a short explainer video on this topic."
+        f"{LENGTH_HINTS.get(length, LENGTH_HINTS['medium'])}\n"
+        "Produce the IR JSON for an explainer video on this topic."
     )
     messages = [{"role": "user", "content": ask}]
 
@@ -108,7 +119,7 @@ def _run_freeform(args) -> None:
 
     print(f"Generating freeform Manim scene for: {args.topic!r} … (sandboxed, may take a bit)")
     try:
-        code, video = generate_freeform(args.topic, model=args.model, quality=args.quality)
+        code, video = generate_freeform(args.topic, model=args.model, quality=args.quality, length=args.length)
     except Exception as exc:
         raise SystemExit(f"Freeform generation failed: {exc}")
 
@@ -126,6 +137,8 @@ def main() -> None:
                         help="constrained = safe IR vocabulary (default); "
                              "freeform = LLM writes full Manim code, sandboxed")
     parser.add_argument("--style", default="midnight", choices=["midnight", "paper"])
+    parser.add_argument("--length", default="medium", choices=["short", "medium", "long"],
+                        help="target video length (prompt-driven)")
     parser.add_argument("--model", default=DEFAULT_MODEL, help="Claude model id")
     parser.add_argument("--out", help="path to write the IR JSON (default: examples/generated/<slug>.json)")
     parser.add_argument("--render", action="store_true", help="render the video after generating (constrained mode)")
@@ -138,7 +151,7 @@ def main() -> None:
 
     print(f"Generating IR for: {args.topic!r} …")
     try:
-        data = generate_ir(args.topic, style=args.style, model=args.model)
+        data = generate_ir(args.topic, style=args.style, model=args.model, length=args.length)
     except Exception as exc:  # surface a clean message; the SDK raises many types
         raise SystemExit(f"Generation failed: {exc}")
 

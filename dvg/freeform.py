@@ -206,6 +206,7 @@ def generate_freeform(
     model: str = DEFAULT_MODEL,
     max_repairs: int = 3,
     quality: str = "l",
+    length: str = "medium",
     timeout: int = 240,
     client=None,
 ) -> tuple[str, str]:
@@ -218,9 +219,18 @@ def generate_freeform(
 
         client = anthropic.Anthropic()
 
+    from .generate import LENGTH_HINTS
+
     system = build_freeform_prompt()
     slug = _slug(topic)
-    messages = [{"role": "user", "content": f"Topic: {topic.strip()}\nWrite the complete Manim scene."}]
+    messages = [{
+        "role": "user",
+        "content": (
+            f"Topic: {topic.strip()}\n"
+            f"{LENGTH_HINTS.get(length, LENGTH_HINTS['medium'])}\n"
+            "Write the complete Manim scene."
+        ),
+    }]
 
     last_error = ""
     for _ in range(max_repairs + 1):
