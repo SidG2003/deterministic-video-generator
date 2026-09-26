@@ -114,12 +114,29 @@ HARD REQUIREMENTS (all must hold)
 - If you use randomness, seed it: random.seed(0).
 - Math: MathTex/Tex (LaTeX installed). Plain text: Text.
 
+NARRATION (required)
+- Immediately after the imports, define a module-level list literal named NARRATION:
+      NARRATION = [
+          "spoken narration for section 1",
+          "spoken narration for section 2",
+      ]
+  One entry per section, in order — the voiceover script a narrator reads ALOUD.
+  This is the spoken explanation, distinct from the short on-screen text; write it
+  as clear, flowing sentences that teach the idea. It must be a plain list of string
+  literals and must NOT be referenced anywhere else in the code (it does not affect
+  the animation — it is metadata for a later voiceover).
+
 OUTPUT
 - Return ONLY the Python code. No markdown fences, no commentary, nothing else.
 
 # Structure reference (invent fresh, richer visuals for the real topic):
 from manim import *
 import numpy as np
+
+NARRATION = [
+    "A short spoken line introducing the idea.",
+    "The next line, explaining what the animation is showing.",
+]
 
 class Generated(ThreeDScene):
     def construct(self):
@@ -175,6 +192,23 @@ def scan_code(code: str) -> None:
 
     if "Generated" not in code:
         raise FreeformError("code must define a Scene subclass named 'Generated'")
+
+
+def extract_narration(code: str) -> list[str]:
+    """Pull the top-level `NARRATION = [...]` list of strings out of generated code
+    (the spoken voiceover script). Returns [] if absent/malformed."""
+    try:
+        tree = ast.parse(code)
+    except SyntaxError:
+        return []
+    for node in tree.body:
+        if isinstance(node, ast.Assign) and isinstance(node.value, ast.List):
+            if any(isinstance(t, ast.Name) and t.id == "NARRATION" for t in node.targets):
+                return [
+                    el.value for el in node.value.elts
+                    if isinstance(el, ast.Constant) and isinstance(el.value, str)
+                ]
+    return []
 
 
 # --- sandbox: subprocess render ---------------------------------------------
@@ -309,6 +343,9 @@ def generate_freeform(
             shutil.copy(mp4, out)
             if logger:
                 logger.artifact("scene.py", code)
+                import json as _json
+                logger.artifact("narration.json",
+                                _json.dumps(extract_narration(code), indent=2, ensure_ascii=False) + "\n")
             return code, str(out)
         except FreeformError as exc:
             last_error = str(exc)
