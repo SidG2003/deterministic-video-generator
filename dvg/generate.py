@@ -24,13 +24,17 @@ from .prompt import build_system_prompt
 DEFAULT_MODEL = "claude-opus-5"
 _FENCE = re.compile(r"^```(?:json)?\s*|\s*```$", re.MULTILINE)
 
-# Length is prompt-driven (duration is emergent from beats/animations/holds).
-# Kept in the per-request user message so the cached system prompt stays stable.
-LENGTH_HINTS = {
-    "short": "Target length ~20-30 seconds: tight, 3-4 beats/sections.",
-    "medium": "Target length ~45-70 seconds: 5-6 beats/sections with clear pacing.",
-    "long": "Target length ~90-150 seconds: thorough, 6-9 beats/sections; build the "
-            "idea in depth, one step at a time, with slightly longer pauses (holds/waits).",
+# Depth = breadth of conceptual coverage, NOT a duration target. Length follows
+# content. Kept in the per-request user message so the cached system prompt stays stable.
+DEPTH_HINTS = {
+    "overview": "Depth: a concise overview — the core idea plus its 2-3 most "
+                "important parts. Length follows content; keep it tight.",
+    "standard": "Depth: cover ALL the major conceptual parts of the topic so the "
+                "video is coherent, complete, and genuinely useful. No target "
+                "duration — let length follow the content, and keep pacing tight.",
+    "deep": "Depth: a thorough, in-depth treatment — every major conceptual part "
+            "plus the key nuances and a worked example where it helps. No target "
+            "duration; be complete but never pad.",
 }
 
 
@@ -60,7 +64,7 @@ def generate_ir(
     style: str = "midnight",
     model: str = DEFAULT_MODEL,
     max_repairs: int = 3,
-    length: str = "medium",
+    depth: str = "standard",
     client=None,
 ) -> dict:
     """Generate and validate an IR document for `topic`. Retries with the
@@ -76,7 +80,7 @@ def generate_ir(
     ask = (
         f"Topic: {topic.strip()}\n"
         f"Style: {style}\n"
-        f"{LENGTH_HINTS.get(length, LENGTH_HINTS['medium'])}\n"
+        f"{DEPTH_HINTS.get(depth, DEPTH_HINTS['standard'])}\n"
         "Produce the IR JSON for an explainer video on this topic."
     )
     messages = [{"role": "user", "content": ask}]
@@ -119,7 +123,7 @@ def _run_freeform(args) -> None:
 
     print(f"Generating freeform Manim scene for: {args.topic!r} … (sandboxed, may take a bit)")
     try:
-        code, video = generate_freeform(args.topic, model=args.model, quality=args.quality, length=args.length)
+        code, video = generate_freeform(args.topic, model=args.model, quality=args.quality, depth=args.depth)
     except Exception as exc:
         raise SystemExit(f"Freeform generation failed: {exc}")
 
@@ -137,8 +141,8 @@ def main() -> None:
                         help="constrained = safe IR vocabulary (default); "
                              "freeform = LLM writes full Manim code, sandboxed")
     parser.add_argument("--style", default="midnight", choices=["midnight", "paper"])
-    parser.add_argument("--length", default="medium", choices=["short", "medium", "long"],
-                        help="target video length (prompt-driven)")
+    parser.add_argument("--depth", default="standard", choices=["overview", "standard", "deep"],
+                        help="breadth of conceptual coverage (length follows content, not a target)")
     parser.add_argument("--model", default=DEFAULT_MODEL, help="Claude model id")
     parser.add_argument("--out", help="path to write the IR JSON (default: examples/generated/<slug>.json)")
     parser.add_argument("--render", action="store_true", help="render the video after generating (constrained mode)")
@@ -151,7 +155,7 @@ def main() -> None:
 
     print(f"Generating IR for: {args.topic!r} …")
     try:
-        data = generate_ir(args.topic, style=args.style, model=args.model, length=args.length)
+        data = generate_ir(args.topic, style=args.style, model=args.model, depth=args.depth)
     except Exception as exc:  # surface a clean message; the SDK raises many types
         raise SystemExit(f"Generation failed: {exc}")
 

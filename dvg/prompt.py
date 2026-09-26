@@ -89,8 +89,17 @@ beat = {
   bands never collide. Keep each slot to a few items; don't cram one slot.
 
 # How to design a good explainer
-- 4-8 beats. Open with a short title beat. One idea per beat; build intuition
-  step by step. End when the idea lands.
+- COVERAGE FIRST: before writing beats, identify the major conceptual parts of the
+  topic, then give each its own beat(s). The video must be coherent and COMPLETE —
+  cover every major part so a viewer actually understands the whole idea, not just
+  a teaser. Use as many beats as the concept genuinely needs (don't stop short, and
+  don't pad with filler).
+- Open with a short title beat, then build intuition one idea at a time in a logical
+  through-line, ending when the idea is fully landed.
+- PACING: let length follow content — there is no target duration. Keep it tight:
+  set each beat's "hold" to ~0.5-1.0s (just long enough to read/absorb), keep
+  animation run_times snappy, and don't linger. Longer videos are fine ONLY when
+  more concept justifies them, never from dead time.
 - SHOW, don't tell: prefer a diagram/graph/timeline over walls of text. Keep
   on-screen text short (a title, a few words, a formula). Put the real
   explanation in the "narration" field, not on screen.

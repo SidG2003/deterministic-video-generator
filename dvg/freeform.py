@@ -86,11 +86,18 @@ TECHNIQUES THAT CREATE SOPHISTICATION (use several, not just one)
   for vector fields.
 - A cohesive, deliberate colour palette and strong use of negative space.
 
-STRUCTURE & PEDAGOGY
-- Open with a title moment. Build the idea one beat at a time, each with a clear
-  visual metaphor. Transition ELEGANTLY between sections (fade/morph/camera move,
-  never a hard cut). Keep on-screen text short and purposeful.
-- Aim for ~40-90 seconds unless told otherwise; give ideas room to land.
+STRUCTURE, COVERAGE & PACING
+- COVERAGE FIRST: identify the major conceptual parts of the topic, then give each
+  its own section. The film must be coherent and COMPLETE — cover every major part
+  so the viewer truly understands the whole idea, not just a teaser. Use as many
+  sections as the concept genuinely needs.
+- Open with a title moment; build one beat at a time in a logical through-line, each
+  with a clear visual metaphor. Transition ELEGANTLY between sections (fade/morph/
+  camera move, never a hard cut). Keep on-screen text short and purposeful.
+- PACING: let length follow content — NO target duration. Keep it tight: holds/
+  waits ~0.5-1.5s (just long enough to read/absorb), snappy run_times, no dead
+  time or lingering. A section runs only as long as its idea justifies. Longer is
+  fine ONLY when more concept earns it.
 
 HARD REQUIREMENTS (all must hold)
 - Define exactly ONE Scene subclass named `Generated` (subclass Scene,
@@ -245,7 +252,7 @@ def generate_freeform(
     model: str = DEFAULT_MODEL,
     max_repairs: int = 3,
     quality: str = "l",
-    length: str = "medium",
+    depth: str = "standard",
     timeout: int = 240,
     client=None,
 ) -> tuple[str, str]:
@@ -258,7 +265,7 @@ def generate_freeform(
 
         client = anthropic.Anthropic()
 
-    from .generate import LENGTH_HINTS
+    from .generate import DEPTH_HINTS
 
     system = build_freeform_prompt()
     slug = _slug(topic)
@@ -266,7 +273,7 @@ def generate_freeform(
         "role": "user",
         "content": (
             f"Topic: {topic.strip()}\n"
-            f"{LENGTH_HINTS.get(length, LENGTH_HINTS['medium'])}\n"
+            f"{DEPTH_HINTS.get(depth, DEPTH_HINTS['standard'])}\n"
             "Write the complete Manim scene."
         ),
     }]

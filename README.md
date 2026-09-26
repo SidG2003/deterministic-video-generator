@@ -48,6 +48,9 @@ python -m dvg.generate "How does a DNS lookup work?" --style midnight --render
   never `eval` — the IR is treated as untrusted input.
 - Workflow: generate IR once (AI) → optionally hand-edit the JSON → render
   (deterministic, cheap, repeatable).
+- `--depth {overview,standard,deep}` (default `standard`) controls breadth of
+  conceptual coverage. There is no target duration — length follows the content,
+  and the prompts enforce tight pacing (no lingering/padding).
 
 ### Two modes: `--mode constrained` (default) vs `--mode freeform`
 - **constrained** (default): the LLM writes safe IR against our vocabulary;
