@@ -20,6 +20,7 @@ from pathlib import Path
 
 from .ir import IRError, validate_ir
 from .prompt import build_system_prompt
+from .runlog import RunLogger, timed
 
 DEFAULT_MODEL = "claude-opus-5"
 _FENCE = re.compile(r"^```(?:json)?\s*|\s*```$", re.MULTILINE)
@@ -66,6 +67,7 @@ def generate_ir(
     max_repairs: int = 3,
     depth: str = "standard",
     client=None,
+    logger: RunLogger | None = None,
 ) -> dict:
     """Generate and validate an IR document for `topic`. Retries with the
     validator's error message until valid or the repair budget is exhausted."""
@@ -83,21 +85,30 @@ def generate_ir(
         f"{DEPTH_HINTS.get(depth, DEPTH_HINTS['standard'])}\n"
         "Produce the IR JSON for an explainer video on this topic."
     )
+    if logger:
+        logger.artifact("system_prompt.txt", system)
+        logger.artifact("prompt.txt", ask)
     messages = [{"role": "user", "content": ask}]
 
     last_error = ""
     for attempt in range(max_repairs + 1):
-        response = client.messages.create(
-            model=model,
-            max_tokens=16000,
-            thinking={"type": "adaptive"},
-            system=[{"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}],
-            messages=messages,
-        )
+        with timed(logger, "llm_call"):
+            response = client.messages.create(
+                model=model,
+                max_tokens=16000,
+                thinking={"type": "adaptive"},
+                system=[{"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}],
+                messages=messages,
+            )
         reply = _text_of(response)
+        if logger:
+            logger.artifact(f"attempt_{attempt + 1}.txt", reply)
         try:
-            data = _extract_json(reply)
-            validate_ir(data)  # the hard contract
+            with timed(logger, "validate"):
+                data = _extract_json(reply)
+                validate_ir(data)  # the hard contract
+            if logger:
+                logger.artifact("ir.json", json.dumps(data, indent=2) + "\n")
             return data
         except (json.JSONDecodeError, IRError) as exc:
             last_error = str(exc)
@@ -122,16 +133,23 @@ def _run_freeform(args) -> None:
     from .freeform import generate_freeform
 
     print(f"Generating freeform Manim scene for: {args.topic!r} … (sandboxed, may take a bit)")
+    logger = RunLogger("freeform", args.topic,
+                       {"depth": args.depth, "model": args.model, "quality": args.quality})
     try:
-        code, video = generate_freeform(args.topic, model=args.model, quality=args.quality, depth=args.depth)
+        code, video = generate_freeform(args.topic, model=args.model, quality=args.quality,
+                                        depth=args.depth, logger=logger)
     except Exception as exc:
+        logger.finish(False, error=str(exc))
         raise SystemExit(f"Freeform generation failed: {exc}")
 
     out = Path(args.out) if args.out else Path("examples/generated") / f"{_slug(args.topic)}.py"
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(code)
+    logger.save_video(video)
+    logger.finish(True)
     print(f"Wrote scene code: {out}")
     print(f"Rendered: {video}")
+    print(f"Run logged at {logger.dir}")
 
 
 def main() -> None:
@@ -154,9 +172,14 @@ def main() -> None:
         return
 
     print(f"Generating IR for: {args.topic!r} …")
+    logger = RunLogger("constrained", args.topic,
+                       {"style": args.style, "depth": args.depth, "model": args.model,
+                        "quality": args.quality, "render": args.render})
     try:
-        data = generate_ir(args.topic, style=args.style, model=args.model, depth=args.depth)
+        data = generate_ir(args.topic, style=args.style, model=args.model,
+                           depth=args.depth, logger=logger)
     except Exception as exc:  # surface a clean message; the SDK raises many types
+        logger.finish(False, error=str(exc))
         raise SystemExit(f"Generation failed: {exc}")
 
     out = Path(args.out) if args.out else Path("examples/generated") / f"{_slug(args.topic)}.json"
@@ -168,8 +191,13 @@ def main() -> None:
         from .build import render
 
         print("Rendering …")
-        video = render(str(out), args.quality)
+        with timed(logger, "render"):
+            video = render(str(out), args.quality)
+        logger.save_video(video)
         print(f"Rendered: {video}" if video else "Render finished but output not found.")
+
+    logger.finish(True)
+    print(f"Run logged at {logger.dir}")
 
 
 if __name__ == "__main__":

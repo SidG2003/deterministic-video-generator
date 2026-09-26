@@ -142,6 +142,18 @@ Then the equation demo renders:
 python -m dvg.build examples/pythagoras.json --quality l
 ```
 
+## Run logs
+Every generation run is archived under `runs/<timestamp>_<mode>_<slug>/` (git-ignored):
+- `prompt.txt`, `system_prompt.txt` — the exact inputs (system prompt is versioned per run since we tune it)
+- `attempt_N.txt` / `attempt_N.py` — each LLM attempt (so repair rounds are visible)
+- `ir.json` (constrained) or `scene.py` (freeform) — the final artifact
+- `video.mp4` — the rendered output
+- `meta.json` — topic, params, success, attempts, and **per-step timings**
+
+Steps timed differ by mode: constrained → `llm_call`, `validate`, `render`;
+freeform → `llm_call`, `scan`, `sandbox_render`, `verify`. `meta.json` aggregates
+`step_totals_seconds` so you can see which steps eat the most time.
+
 ## Not yet installed
 - **manim-voiceover** — TTS + auto-timed narration. Planned for Phase 1c.
 

@@ -2,5 +2,6 @@
 media/
 output/
 examples/generated/
+runs/
 __pycache__/
 *.pyc

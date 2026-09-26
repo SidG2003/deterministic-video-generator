@@ -255,6 +255,7 @@ def generate_freeform(
     depth: str = "standard",
     timeout: int = 240,
     client=None,
+    logger=None,
 ) -> tuple[str, str]:
     """Generate a full Manim scene for `topic`, render it in the sandbox, and
     repair on failure. Returns (code, output_mp4_path)."""
@@ -266,36 +267,46 @@ def generate_freeform(
         client = anthropic.Anthropic()
 
     from .generate import DEPTH_HINTS
+    from .runlog import timed
 
     system = build_freeform_prompt()
     slug = _slug(topic)
-    messages = [{
-        "role": "user",
-        "content": (
-            f"Topic: {topic.strip()}\n"
-            f"{DEPTH_HINTS.get(depth, DEPTH_HINTS['standard'])}\n"
-            "Write the complete Manim scene."
-        ),
-    }]
+    user_msg = (
+        f"Topic: {topic.strip()}\n"
+        f"{DEPTH_HINTS.get(depth, DEPTH_HINTS['standard'])}\n"
+        "Write the complete Manim scene."
+    )
+    if logger:
+        logger.artifact("system_prompt.txt", system)
+        logger.artifact("prompt.txt", user_msg)
+    messages = [{"role": "user", "content": user_msg}]
 
     last_error = ""
-    for _ in range(max_repairs + 1):
-        response = client.messages.create(
-            model=model,
-            max_tokens=16000,
-            thinking={"type": "adaptive"},
-            system=[{"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}],
-            messages=messages,
-        )
+    for attempt in range(max_repairs + 1):
+        with timed(logger, "llm_call"):
+            response = client.messages.create(
+                model=model,
+                max_tokens=16000,
+                thinking={"type": "adaptive"},
+                system=[{"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}],
+                messages=messages,
+            )
         code = _FENCE.sub("", _text_of(response)).strip()
+        if logger:
+            logger.artifact(f"attempt_{attempt + 1}.py", code)
         try:
-            scan_code(code)  # fail closed before executing anything
-            proc, media_dir = _run(code, slug, quality, timeout)
-            mp4 = _verify(proc, media_dir, slug)
+            with timed(logger, "scan"):
+                scan_code(code)  # fail closed before executing anything
+            with timed(logger, "sandbox_render"):
+                proc, media_dir = _run(code, slug, quality, timeout)
+            with timed(logger, "verify"):
+                mp4 = _verify(proc, media_dir, slug)
             dest = Path("media/videos/freeform")
             dest.mkdir(parents=True, exist_ok=True)
             out = dest / f"{slug}.mp4"
             shutil.copy(mp4, out)
+            if logger:
+                logger.artifact("scene.py", code)
             return code, str(out)
         except FreeformError as exc:
             last_error = str(exc)
