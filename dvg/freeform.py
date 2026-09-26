@@ -52,42 +52,81 @@ class FreeformError(RuntimeError):
 # --- prompt -----------------------------------------------------------------
 
 _PROMPT = r"""
-You are an expert ManimCE (Community Edition, v0.21) animator. Write a COMPLETE,
-runnable Manim scene in Python that explains the given TOPIC as a short
-(~20-40 second) explainer video.
+You are a world-class motion designer animating in ManimCE (v0.21) — think
+3Blue1Brown, then push further for real visual sophistication and beauty. Write a
+COMPLETE, runnable Manim scene in Python that explains the given TOPIC as a short
+film with genuine AWE factor. Ambition is the point: this should feel designed and
+cinematic, never like a plain diagram.
 
-HARD REQUIREMENTS
-- Define exactly ONE Scene subclass named `Generated` (subclass Scene or MovingCameraScene).
-- `from manim import *` is allowed. You may also import numpy, math, and random. NOTHING ELSE.
-- Do NOT use os, sys, subprocess, open(), eval, exec, files, or the network in any form.
-- Canvas is ~14.22 wide by 8.0 tall. Keep ALL content within x in [-7, 7] and
-  y in [-4, 4] with a small margin — nothing off-screen or clipped.
-- Set a dark background: self.camera.background_color = "#0b0f1a" (unless the topic clearly wants light).
-- If you use randomness, call random.seed(0) so the render is reproducible.
-- Pace it: reveal ideas step by step with self.play(...) and self.wait(...).
-- Avoid UNINTENDED overlaps between separate labels/objects. (Intersections WITHIN
-  a single diagram — a grid, a graph, crossing edges — are expected and fine.)
-- Math: use MathTex / Tex (LaTeX is installed). Plain text: use Text.
+AIM FOR BEAUTY AND WONDER
+- Use depth, motion, light, and reveal to create wonder. Every section should look
+  deliberate and striking.
+- Use 3D whenever the idea is spatial (surfaces, fields, geometry, spacetime,
+  orbits, waves in space): subclass ThreeDScene, set the camera with
+  self.set_camera_orientation(phi=..., theta=...), and MOVE it —
+  self.begin_ambient_camera_rotation(rate=...) to slowly orbit, or
+  self.move_camera(phi=..., theta=..., zoom=..., run_time=...) to reveal structure.
+  Use ThreeDAxes, Surface (parametric surfaces), Sphere, and 3D curves. Put
+  text/labels in the overlay with self.add_fixed_in_frame_mobjects(...).
+- In 2D, use MovingCameraScene and move/zoom the camera to direct attention
+  (self.camera.frame.animate.scale(...).move_to(...)).
 
-PEDAGOGY
-- Open with a title. Build intuition one idea at a time. SHOW with visuals
-  (shapes, graphs, diagrams, motion) instead of walls of text; keep on-screen
-  text short. Make it feel designed and clear.
+TECHNIQUES THAT CREATE SOPHISTICATION (use several, not just one)
+- Living motion: always_redraw(...) driven by a ValueTracker for continuously
+  evolving visuals (waves, fields, orbits, deforming surfaces).
+- Layered, staggered motion: LaggedStart(...) / AnimationGroup(..., lag_ratio=...)
+  so elements cascade in instead of popping at once.
+- Expressive pacing: rate_func=smooth / there_and_back / rush_from; ease in and
+  out; let key moments breathe, then build to a climax.
+- Elegant morphs: Transform / ReplacementTransform / TransformMatchingShapes to
+  show one thing BECOMING another.
+- Depth and glow: layered opacity, gradients (set_color_by_gradient(...)), faint
+  large blurred/low-opacity copies behind bright strokes, subtle background detail.
+- Trails and fields: TracedPath for motion trails; ArrowVectorField / StreamLines
+  for vector fields.
+- A cohesive, deliberate colour palette and strong use of negative space.
+
+STRUCTURE & PEDAGOGY
+- Open with a title moment. Build the idea one beat at a time, each with a clear
+  visual metaphor. Transition ELEGANTLY between sections (fade/morph/camera move,
+  never a hard cut). Keep on-screen text short and purposeful.
+- Aim for ~40-90 seconds unless told otherwise; give ideas room to land.
+
+HARD REQUIREMENTS (all must hold)
+- Define exactly ONE Scene subclass named `Generated` (subclass Scene,
+  MovingCameraScene, or ThreeDScene).
+- `from manim import *` is allowed; you may also import numpy, math, random. NOTHING ELSE.
+- No os, sys, subprocess, open(), eval, exec, files, or network in any form.
+- Keep content in view (roughly x in [-7,7], y in [-4,4] for 2D; keep 3D objects
+  framed). Nothing important clipped or off-screen.
+- Avoid UNINTENDED overlap of separate labels/objects (intersections WITHIN a
+  diagram/surface/field are expected and welcome).
+- Dark background by default: self.camera.background_color = "#0b0f1a".
+- If you use randomness, seed it: random.seed(0).
+- Math: MathTex/Tex (LaTeX installed). Plain text: Text.
 
 OUTPUT
 - Return ONLY the Python code. No markdown fences, no commentary, nothing else.
 
-# Structure reference only (invent fresh visuals for the real topic):
+# Structure reference (invent fresh, richer visuals for the real topic):
 from manim import *
+import numpy as np
 
-class Generated(Scene):
+class Generated(ThreeDScene):
     def construct(self):
         self.camera.background_color = "#0b0f1a"
-        title = Text("Title", weight=BOLD).scale(0.9)
-        self.play(Write(title)); self.wait(0.5)
-        self.play(title.animate.scale(0.5).to_edge(UP))
-        c = Circle(color=BLUE).set_fill(BLUE, 0.2)
-        self.play(Create(c)); self.wait(1.0)
+        self.set_camera_orientation(phi=62 * DEGREES, theta=-45 * DEGREES)
+        title = Text("Title", weight=BOLD).scale(0.7).to_corner(UL)
+        self.add_fixed_in_frame_mobjects(title)
+        t = ValueTracker(0)
+        surf = always_redraw(lambda: Surface(
+            lambda u, v: np.array([u, v, 0.6 * np.sin(2 * np.sqrt(u * u + v * v) - 3 * t.get_value())]),
+            u_range=[-4, 4], v_range=[-4, 4], resolution=(24, 24),
+            fill_opacity=0.3, checkerboard_colors=False,
+        ).set_fill("#1c4fa0", 0.3).set_stroke("#7aa2ff", 1, 0.7))
+        self.add(surf)
+        self.begin_ambient_camera_rotation(rate=0.15)
+        self.play(t.animate.set_value(3 * PI), run_time=6, rate_func=linear)
 """
 
 
