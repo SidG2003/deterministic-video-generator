@@ -40,7 +40,9 @@ _FORBIDDEN_CALLS = {
     "globals", "locals", "vars", "getattr", "setattr", "delattr", "memoryview",
     "exit", "quit", "breakpoint",
 }
-_MAX_CODE_LEN = 20000
+# Generous bound: a thorough --depth deep scene can legitimately run 600+ lines.
+# Still caps pathological/runaway output.
+_MAX_CODE_LEN = 60000
 
 DEFAULT_MODEL = "claude-opus-5"
 
