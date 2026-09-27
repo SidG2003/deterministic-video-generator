@@ -24,17 +24,23 @@ from .freeform import FreeformError, _run, _verify, extract_narration, scan_code
 from .runlog import RunLogger, _slug, timed
 
 
-def coldsim_render(topic: str, code: str, quality: str = "l",
-                   llm_seconds: float = 0.0, timeout: int = 1200) -> tuple[str | None, dict]:
-    """Log a cold-sim run: record `llm_seconds` as the llm_call step (the subagent's
-    generation time), then run + time the real scan/sandbox/verify. Returns
-    (video_path_or_None, meta)."""
-    logger = RunLogger("freeform", topic,
+def coldsim_render(user_prompt: str, code: str, quality: str = "l",
+                   llm_seconds: float = 0.0, system_prompt: str = "",
+                   timeout: int = 1200) -> tuple[str | None, dict]:
+    """Log a cold-sim run faithfully: archive the REAL prompts that produced the
+    code (`user_prompt` = the exact user message fed to the model, `system_prompt`
+    = the system prompt), record `llm_seconds` as the llm_call step (the subagent's
+    generation time), then run + time the real scan/sandbox/verify. `user_prompt`
+    is also the run's topic. Returns (video_path_or_None, meta)."""
+    logger = RunLogger("freeform", user_prompt,
                        {"quality": quality, "source": "coldsim", "llm_seconds": llm_seconds})
+    if system_prompt:
+        logger.artifact("system_prompt.txt", system_prompt)
+    logger.artifact("prompt.txt", user_prompt)  # the actual user message
     logger.artifact("scene.py", code)
     logger.record_step("llm_call", float(llm_seconds))  # provided (subagent gen time)
 
-    slug = _slug(topic)
+    slug = _slug(user_prompt)
     video, error = None, None
     try:
         with timed(logger, "scan"):
