@@ -7,8 +7,10 @@ exact error to fix. The renderer stays fully deterministic — only this authori
 step uses AI, and it can never emit something that renders broken, because
 invalid IR is rejected here and repaired before it reaches the renderer.
 
-Usage (needs ANTHROPIC_API_KEY or an `ant auth login` profile):
+Usage (needs ANTHROPIC_API_KEY for Claude models, or OPENAI_API_KEY for GPT/o*
+models -- either in the environment or in a .env file; see dvg.llm):
     python -m dvg.generate "How does a DNS lookup work?" --style midnight --render
+    python -m dvg.generate "How does a DNS lookup work?" --model gpt-5.4-mini
 """
 
 from __future__ import annotations
@@ -18,6 +20,7 @@ import json
 import re
 from pathlib import Path
 
+from . import llm
 from .ir import IRError, validate_ir
 from .prompt import build_system_prompt
 from .runlog import RunLogger, timed
@@ -56,10 +59,6 @@ def _extract_json(text: str) -> dict:
         return json.loads(cleaned[start : end + 1])
 
 
-def _text_of(response) -> str:
-    return "".join(b.text for b in response.content if b.type == "text")
-
-
 def generate_ir(
     topic: str,
     style: str = "midnight",
@@ -74,9 +73,7 @@ def generate_ir(
     if not topic or not topic.strip():
         raise GenerationError("topic must be a non-empty string")
     if client is None:
-        import anthropic  # imported lazily so rendering doesn't require the SDK
-
-        client = anthropic.Anthropic()
+        client = llm.make_client(model)
 
     system = build_system_prompt()
     ask = (
@@ -93,16 +90,9 @@ def generate_ir(
     last_error = ""
     for attempt in range(max_repairs + 1):
         with timed(logger, "llm_call"):
-            response = client.messages.create(
-                model=model,
-                max_tokens=16000,
-                thinking={"type": "adaptive"},
-                system=[{"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}],
-                messages=messages,
-            )
+            reply, tokens = llm.complete(client, model, system, messages)
         if logger:
-            logger.record_tokens("llm_call", response.usage)
-        reply = _text_of(response)
+            logger.record_tokens("llm_call", tokens)
         if logger:
             logger.artifact(f"attempt_{attempt + 1}.txt", reply)
         try:
@@ -163,7 +153,8 @@ def main() -> None:
     parser.add_argument("--style", default="midnight", choices=["midnight", "paper"])
     parser.add_argument("--depth", default="standard", choices=["overview", "standard", "deep"],
                         help="breadth of conceptual coverage (length follows content, not a target)")
-    parser.add_argument("--model", default=DEFAULT_MODEL, help="Claude model id")
+    parser.add_argument("--model", default=DEFAULT_MODEL,
+                        help="model id: 'claude-*' (Anthropic) or 'gpt-*'/'o*' (OpenAI)")
     parser.add_argument("--out", help="path to write the IR JSON (default: examples/generated/<slug>.json)")
     parser.add_argument("--render", action="store_true", help="render the video after generating (constrained mode)")
     parser.add_argument("--quality", choices=["l", "m", "h", "k"], default="l")

@@ -27,7 +27,8 @@ import sys
 import tempfile
 from pathlib import Path
 
-from .generate import _slug, _text_of
+from . import llm
+from .generate import _slug
 
 _FENCE = re.compile(r"^```(?:python)?\s*|\s*```$", re.MULTILINE)
 _QUALITY = {"l": "low_quality", "m": "medium_quality", "h": "high_quality", "k": "fourk_quality"}
@@ -298,9 +299,7 @@ def generate_freeform(
     if not topic or not topic.strip():
         raise FreeformError("topic must be a non-empty string")
     if client is None:
-        import anthropic  # lazy: rendering-only use shouldn't require the SDK
-
-        client = anthropic.Anthropic()
+        client = llm.make_client(model)
 
     from .generate import DEPTH_HINTS
     from .runlog import timed
@@ -320,16 +319,10 @@ def generate_freeform(
     last_error = ""
     for attempt in range(max_repairs + 1):
         with timed(logger, "llm_call"):
-            response = client.messages.create(
-                model=model,
-                max_tokens=16000,
-                thinking={"type": "adaptive"},
-                system=[{"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}],
-                messages=messages,
-            )
+            reply, tokens = llm.complete(client, model, system, messages)
         if logger:
-            logger.record_tokens("llm_call", response.usage)
-        code = _FENCE.sub("", _text_of(response)).strip()
+            logger.record_tokens("llm_call", tokens)
+        code = _FENCE.sub("", reply).strip()
         if logger:
             logger.artifact(f"attempt_{attempt + 1}.py", code)
         try:

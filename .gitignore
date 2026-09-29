@@ -5,3 +5,4 @@ examples/generated/
 runs/
 __pycache__/
 *.pyc
+.env
