@@ -102,6 +102,23 @@ STRUCTURE, COVERAGE & PACING
   time or lingering. A section runs only as long as its idea justifies. Longer is
   fine ONLY when more concept earns it.
 
+LAYOUT & LEGIBILITY — NO OVERLAP (this matters as much as beauty)
+- Position with RELATIVE layout, not hand-picked absolute coordinates that
+  collide: build text/label clusters as VGroup(...).arrange(DOWN/RIGHT,
+  buff=0.3+) and attach labels with next_to(target, DIR, buff=0.3+). Avoid
+  stacking multiple Text/MathTex at the same point.
+- Reserve regions: pin section titles to a band (to_edge(UP, buff=0.5)) and keep
+  body content clearly below/apart; use consistent bands so nothing collides.
+- CLEAR BEFORE YOU CROWD: before introducing new content in an area, FadeOut (or
+  transform) what was there. Keep only a FEW text elements on screen at once —
+  don't accumulate labels until they pile up.
+- One focal cluster at a time; use camera move/zoom or fade transitions to shift
+  attention instead of piling more elements into the same space.
+- Mind sizes: scale down long text (font_size / .scale(...)) so measured widths
+  fit their region; a label must not run into its neighbour or off-frame.
+- Intersections WITHIN a single diagram/surface/field are expected and welcome;
+  what to avoid is UNINTENDED overlap of SEPARATE labels/objects.
+
 HARD REQUIREMENTS (all must hold)
 - Define exactly ONE Scene subclass named `Generated` (subclass Scene,
   MovingCameraScene, or ThreeDScene).
@@ -109,8 +126,8 @@ HARD REQUIREMENTS (all must hold)
 - No os, sys, subprocess, open(), eval, exec, files, or network in any form.
 - Keep content in view (roughly x in [-7,7], y in [-4,4] for 2D; keep 3D objects
   framed). Nothing important clipped or off-screen.
-- Avoid UNINTENDED overlap of separate labels/objects (intersections WITHIN a
-  diagram/surface/field are expected and welcome).
+- No UNINTENDED overlap of separate labels/objects — follow LAYOUT & LEGIBILITY
+  above (relative layout, reserved bands, clear-before-crowd).
 - Dark background by default: self.camera.background_color = "#0b0f1a".
 - If you use randomness, seed it: random.seed(0).
 - Math: MathTex/Tex (LaTeX installed). Plain text: Text.
