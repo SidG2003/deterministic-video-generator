@@ -327,6 +327,8 @@ def generate_freeform(
                 system=[{"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}],
                 messages=messages,
             )
+        if logger:
+            logger.record_tokens("llm_call", response.usage)
         code = _FENCE.sub("", _text_of(response)).strip()
         if logger:
             logger.artifact(f"attempt_{attempt + 1}.py", code)

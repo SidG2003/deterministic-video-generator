@@ -148,11 +148,14 @@ Every generation run is archived under `runs/<timestamp>_<mode>_<slug>/` (git-ig
 - `attempt_N.txt` / `attempt_N.py` — each LLM attempt (so repair rounds are visible)
 - `ir.json` (constrained) or `scene.py` (freeform) — the final artifact
 - `video.mp4` — the rendered output
-- `meta.json` — topic, params, success, attempts, and **per-step timings**
+- `meta.json` — topic, params, success, attempts, and **per-step timings and token usage**
 
 Steps timed differ by mode: constrained → `llm_call`, `validate`, `render`;
 freeform → `llm_call`, `scan`, `sandbox_render`, `verify`. `meta.json` aggregates
-`step_totals_seconds` so you can see which steps eat the most time.
+`step_totals_seconds` so you can see which steps eat the most time. Each
+`llm_call` also records its token usage (`input_tokens`, `output_tokens`,
+`cache_creation_input_tokens`, `cache_read_input_tokens`), aggregated per step
+in `token_totals` and overall in `total_tokens`, so you can see cost alongside time.
 
 ## Not yet installed
 - **manim-voiceover** — TTS + auto-timed narration. Planned for Phase 1c.

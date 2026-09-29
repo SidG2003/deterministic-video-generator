@@ -3,13 +3,15 @@ Per-run logging.
 
 Every generation run is archived under runs/<timestamp>_<mode>_<slug>/ with all
 its artifacts (prompt, system prompt, each attempt's output, the final IR/code,
-the video) and a meta.json that records step-by-step timings. This makes past
-runs easy to inspect/compare and shows which steps eat the most time.
+the video) and a meta.json that records step-by-step timings and, for each
+llm_call, its token usage (input/output/cache tokens). This makes past runs
+easy to inspect/compare and shows which steps eat the most time and tokens.
 
 The logged steps differ by mode (that's the point):
   constrained : llm_call, validate, render
   freeform    : llm_call, scan, sandbox_render, verify
-Each is timed per attempt; meta.json aggregates per-step totals across attempts.
+Each is timed per attempt; meta.json aggregates per-step totals across
+attempts for both seconds (step_totals_seconds) and tokens (token_totals).
 """
 
 from __future__ import annotations
@@ -23,6 +25,13 @@ from datetime import datetime
 from pathlib import Path
 
 RUNS_DIR = Path("runs")
+
+_TOKEN_FIELDS = (
+    "input_tokens",
+    "output_tokens",
+    "cache_creation_input_tokens",
+    "cache_read_input_tokens",
+)
 
 
 def _slug(text: str) -> str:
@@ -40,11 +49,24 @@ class RunLogger:
         self.dir.mkdir(parents=True, exist_ok=True)
         self._start = time.perf_counter()
         self.steps: list[dict] = []
+        self.tokens: list[dict] = []
         self.artifacts: list[str] = []
         self.video: str | None = None
 
     def record_step(self, name: str, seconds: float) -> None:
         self.steps.append({"name": name, "seconds": round(seconds, 3)})
+
+    def record_tokens(self, name: str, usage) -> None:
+        """Record token usage for a step (e.g. `llm_call`). `usage` may be an
+        Anthropic `Usage` object (from `response.usage`) or a plain dict with
+        the same field names; missing/None fields are treated as 0."""
+        def _get(key: str) -> int:
+            if usage is None:
+                return 0
+            value = usage.get(key) if isinstance(usage, dict) else getattr(usage, key, None)
+            return value or 0
+
+        self.tokens.append({"name": name, **{field: _get(field) for field in _TOKEN_FIELDS}})
 
     def artifact(self, name: str, content: str) -> Path:
         path = self.dir / name
@@ -68,6 +90,15 @@ class RunLogger:
         for step in self.steps:
             totals[step["name"]] = round(totals.get(step["name"], 0.0) + step["seconds"], 3)
         attempts = sum(1 for s in self.steps if s["name"] == "llm_call") or None
+
+        token_totals: dict[str, dict[str, int]] = {}
+        for entry in self.tokens:
+            bucket = token_totals.setdefault(entry["name"], {field: 0 for field in _TOKEN_FIELDS})
+            for field in _TOKEN_FIELDS:
+                bucket[field] += entry[field]
+        total_tokens = {field: sum(b[field] for b in token_totals.values()) for field in _TOKEN_FIELDS}
+        total_tokens["total_tokens"] = total_tokens["input_tokens"] + total_tokens["output_tokens"]
+
         meta = {
             "mode": self.mode,
             "topic": self.topic,
@@ -78,6 +109,9 @@ class RunLogger:
             "total_seconds": round(time.perf_counter() - self._start, 3),
             "step_totals_seconds": totals,
             "steps": self.steps,
+            "total_tokens": total_tokens,
+            "token_totals": token_totals,
+            "tokens": self.tokens,
             "artifacts": self.artifacts,
             "video": self.video,
             "error": error,

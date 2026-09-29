@@ -100,6 +100,8 @@ def generate_ir(
                 system=[{"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}],
                 messages=messages,
             )
+        if logger:
+            logger.record_tokens("llm_call", response.usage)
         reply = _text_of(response)
         if logger:
             logger.artifact(f"attempt_{attempt + 1}.txt", reply)

@@ -3,15 +3,17 @@ Cold-generation simulation recorder.
 
 We test the LLM without an API key by generating code in a context-free subagent
 and running it through the real pipeline. But that generation happens OUTSIDE
-`generate_freeform`, so `llm_call` would log 0s. This helper records a cold run
-whose meta.json reflects a realistic end-to-end picture: pass the subagent's
-reported generation time via `llm_seconds`, and the real scan/sandbox/verify are
-timed as usual. Use it until real keys are in place.
+`generate_freeform`, so `llm_call` would log 0s (and no tokens). This helper
+records a cold run whose meta.json reflects a realistic end-to-end picture:
+pass the subagent's reported generation time via `llm_seconds` and, optionally,
+its reported token usage via `tokens`; the real scan/sandbox/verify are timed
+as usual. Use it until real keys are in place.
 
 Usage:
     from dvg.coldsim import coldsim_render
     code = open("scene.py").read()
-    video, meta = coldsim_render("my topic", code, quality="l", llm_seconds=133.0)
+    video, meta = coldsim_render("my topic", code, quality="l", llm_seconds=133.0,
+                                 tokens={"input_tokens": 1200, "output_tokens": 3400})
 """
 
 from __future__ import annotations
@@ -26,11 +28,13 @@ from .runlog import RunLogger, _slug, timed
 
 def coldsim_render(user_prompt: str, code: str, quality: str = "l",
                    llm_seconds: float = 0.0, system_prompt: str = "",
-                   timeout: int = 1200) -> tuple[str | None, dict]:
+                   timeout: int = 1200, tokens: dict | None = None) -> tuple[str | None, dict]:
     """Log a cold-sim run faithfully: archive the REAL prompts that produced the
     code (`user_prompt` = the exact user message fed to the model, `system_prompt`
     = the system prompt), record `llm_seconds` as the llm_call step (the subagent's
-    generation time), then run + time the real scan/sandbox/verify. `user_prompt`
+    generation time), optionally record `tokens` (a dict with input_tokens/
+    output_tokens/etc., if the subagent reported its usage) as the llm_call's
+    token usage, then run + time the real scan/sandbox/verify. `user_prompt`
     is also the run's topic. Returns (video_path_or_None, meta)."""
     logger = RunLogger("freeform", user_prompt,
                        {"quality": quality, "source": "coldsim", "llm_seconds": llm_seconds})
@@ -39,6 +43,8 @@ def coldsim_render(user_prompt: str, code: str, quality: str = "l",
     logger.artifact("prompt.txt", user_prompt)  # the actual user message
     logger.artifact("scene.py", code)
     logger.record_step("llm_call", float(llm_seconds))  # provided (subagent gen time)
+    if tokens is not None:
+        logger.record_tokens("llm_call", tokens)  # provided (subagent usage)
 
     slug = _slug(user_prompt)
     video, error = None, None
