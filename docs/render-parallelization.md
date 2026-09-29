@@ -13,6 +13,33 @@ at current scale; revisit only for 4K or long-form output.** Kept for later.
   a reduce, not a map). So a beat can't be rendered in isolation without first
   reconstructing all prior state.
 
+## Constrained vs freeform: why only one is splittable
+The gap isn't incidental — it comes from how much machine-readable structure
+each representation carries.
+
+| | Constrained | Freeform |
+|---|---|---|
+| Representation | declarative IR (data) | arbitrary Python (`construct()`) |
+| Cut points | explicit `clear` beats, found by scanning | none guaranteed; whole-video only |
+| State model | explicit `canvas` dict + `clear()` | opaque local variables |
+| Reconstruct mid-state | cheap declarative replay | must execute; no clean boundary |
+| Splittable? | **yes (at clears)** | **effectively no** |
+
+- Constrained renders from validated IR, so a splitter can find boundaries and
+  know exactly what persists **without executing anything**.
+- Freeform is one monolithic `construct()` with locals and interleaved
+  play/wait; "sections" (e.g. the `NARRATION` list) are conventions, not
+  guaranteed-independent units, and state lives in Python locals with no
+  `clear` concept. The same expressiveness that makes it flexible makes it
+  opaque to a splitter.
+- Making freeform splittable would require changing **generation** (force
+  self-contained per-section scenes with no shared locals) — which fights the
+  point of freeform and essentially reinvents constrained mode.
+- Note: determinism is **not** the differentiator — freeform is also largely
+  deterministic (sandbox allowlist is `manim/numpy/math/random`, no os/time/net,
+  prompt requires `random.seed(0)`). Structure/introspectability is what buys
+  parallelism, and only constrained has it.
+
 ## Natural split points
 - `clear=True` beats fully empty the canvas → true "hard cuts" with no carried
   state. Segments between clears are genuinely independent.
@@ -58,8 +85,8 @@ Parallel wall ≈ `import(1.95s)` + `longest_segment_render` + concat/spawn(~0.3
   prior beats in a no-frame "advance to end state" mode, then renders its beats.
   More parallelism, but needs an instant-finish path for animations
   (camera/layout end states) and adds redundant replay cost. More work/risk.
-- **Freeform mode:** effectively unsplittable — one monolithic `construct()`
-  with local vars and interleaved play/wait; no beat structure to partition.
+- Both options are **constrained-mode only** (see the mode comparison above);
+  freeform has no beat structure to partition.
 
 ## Higher-leverage alternative at current scale
 - The biggest fixed cost is the ~1.95s Manim import. A **persistent warm render
