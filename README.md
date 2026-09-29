@@ -31,15 +31,19 @@ Verified deterministic: same IR + seed → byte-identical video frames.
 
 ## Generate a video from a topic (the AI authoring step)
 
-An LLM (Claude) writes the IR; the renderer stays deterministic. Only this step
-uses AI, and a **validate-and-repair loop** checks each candidate against the IR
-contract and feeds the validator's error back to the model until it's valid — so
+An LLM writes the IR; the renderer stays deterministic. Only this step uses AI,
+and a **validate-and-repair loop** checks each candidate against the IR contract
+and feeds the validator's error back to the model until it's valid — so
 generation can never produce something that renders broken.
 
 ```bash
-export ANTHROPIC_API_KEY=...        # or `ant auth login`
+cp .env.example .env                # then fill in a key for your provider
 python -m dvg.generate "How does a DNS lookup work?" --style midnight --render
 ```
+Provider is chosen from `--model`: `claude-*` → Anthropic (`ANTHROPIC_API_KEY`),
+`gpt-*`/`o*` → OpenAI, or Azure OpenAI when `AZURE_OPENAI_ENDPOINT` is set (pass
+the Azure deployment name as `--model`). See [.env.example](.env.example) for the
+full list of variables. Keys load automatically from `.env` (gitignored).
 - `dvg/prompt.py` — the pedagogy + schema system prompt (self-checks that it
   documents every element/animation the renderer supports).
 - `dvg/generate.py` — the LLM call + repair loop (`--out`, `--render`, `--model`).
