@@ -90,9 +90,9 @@ def generate_ir(
     last_error = ""
     for attempt in range(max_repairs + 1):
         with timed(logger, "llm_call"):
-            reply, tokens = llm.complete(client, model, system, messages)
+            reply, tokens, used_model = llm.complete(client, model, system, messages)
         if logger:
-            logger.record_tokens("llm_call", tokens)
+            logger.record_tokens("llm_call", tokens, model=used_model)
         if logger:
             logger.artifact(f"attempt_{attempt + 1}.txt", reply)
         try:

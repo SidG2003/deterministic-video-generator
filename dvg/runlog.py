@@ -56,17 +56,23 @@ class RunLogger:
     def record_step(self, name: str, seconds: float) -> None:
         self.steps.append({"name": name, "seconds": round(seconds, 3)})
 
-    def record_tokens(self, name: str, usage) -> None:
+    def record_tokens(self, name: str, usage, model: str | None = None) -> None:
         """Record token usage for a step (e.g. `llm_call`). `usage` may be an
         Anthropic `Usage` object (from `response.usage`) or a plain dict with
-        the same field names; missing/None fields are treated as 0."""
+        the same field names; missing/None fields are treated as 0. `model`, if
+        given, records which model served this call (kept per-entry since the
+        served model can vary across attempts / cold-sim providers)."""
         def _get(key: str) -> int:
             if usage is None:
                 return 0
             value = usage.get(key) if isinstance(usage, dict) else getattr(usage, key, None)
             return value or 0
 
-        self.tokens.append({"name": name, **{field: _get(field) for field in _TOKEN_FIELDS}})
+        entry: dict = {"name": name}
+        if model:
+            entry["model"] = model
+        entry.update({field: _get(field) for field in _TOKEN_FIELDS})
+        self.tokens.append(entry)
 
     def artifact(self, name: str, content: str) -> Path:
         path = self.dir / name

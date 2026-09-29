@@ -76,9 +76,12 @@ def make_client(model: str):
 
 
 def complete(client, model: str, system: str, messages: list[dict],
-             max_tokens: int = 16000) -> tuple[str, dict]:
-    """Send one chat turn and return (text, usage_dict). `messages` holds only
-    user/assistant turns; `system` is the (cached, where supported) system prompt."""
+             max_tokens: int = 16000) -> tuple[str, dict, str]:
+    """Send one chat turn and return (text, usage_dict, served_model). `messages`
+    holds only user/assistant turns; `system` is the (cached, where supported)
+    system prompt. `served_model` is the model id the API reports actually
+    serving the request (on Azure this is the underlying model, not the
+    deployment name), falling back to the requested `model`."""
     if provider_for(model) == "anthropic":
         response = client.messages.create(
             model=model,
@@ -95,7 +98,7 @@ def complete(client, model: str, system: str, messages: list[dict],
             "cache_creation_input_tokens": getattr(usage, "cache_creation_input_tokens", 0) or 0,
             "cache_read_input_tokens": getattr(usage, "cache_read_input_tokens", 0) or 0,
         }
-        return text, tokens
+        return text, tokens, getattr(response, "model", None) or model
 
     # OpenAI / Azure OpenAI: the Responses API is the unified interface for both.
     response = client.responses.create(
@@ -113,4 +116,4 @@ def complete(client, model: str, system: str, messages: list[dict],
         "cache_creation_input_tokens": 0,
         "cache_read_input_tokens": getattr(input_details, "cached_tokens", 0) or 0,
     }
-    return text, tokens
+    return text, tokens, getattr(response, "model", None) or model
