@@ -20,6 +20,7 @@ utilization) show how much compute — and how many cores — a step actually us
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import re
@@ -43,6 +44,18 @@ def _slug(text: str) -> str:
     return re.sub(r"[^a-z0-9]+", "_", (text or "").lower()).strip("_")[:50] or "run"
 
 
+def prompt_sha(text: str) -> str:
+    """Short content hash of a prompt (first 12 hex chars of SHA-256)."""
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()[:12]
+
+
+def prompt_version(tag: str, expected_sha: str, text: str) -> str:
+    """Return `tag` if `text` is exactly the prompt logged under that version in
+    docs/prompt-log.md, else `tag+modified` — so an edit made without bumping the
+    version (and logging it) shows up in every run's meta.json."""
+    return tag if prompt_sha(text) == expected_sha else f"{tag}+modified"
+
+
 class RunLogger:
     def __init__(self, mode: str, topic: str, params: dict | None = None, base: Path = RUNS_DIR):
         self.mode = mode
@@ -57,6 +70,21 @@ class RunLogger:
         self.tokens: list[dict] = []
         self.artifacts: list[str] = []
         self.video: str | None = None
+        self.user_prompt: str | None = None
+        self.system_prompt_version: str | None = None
+        self.system_prompt_sha256: str | None = None
+
+    def record_prompts(self, system_prompt: str | None, user_prompt: str,
+                       system_prompt_version: str | None = None) -> None:
+        """Archive the exact prompts sent to the model (system_prompt.txt, prompt.txt)
+        and keep the user prompt, the system prompt's version tag (as in
+        docs/prompt-log.md) and its content hash for meta.json."""
+        if system_prompt is not None:
+            self.artifact("system_prompt.txt", system_prompt)
+            self.system_prompt_sha256 = prompt_sha(system_prompt)
+        self.artifact("prompt.txt", user_prompt)
+        self.user_prompt = user_prompt
+        self.system_prompt_version = system_prompt_version
 
     def record_step(self, name: str, seconds: float, cpu_seconds: float | None = None,
                     attempt: int | None = None) -> None:
@@ -138,6 +166,9 @@ class RunLogger:
             "mode": self.mode,
             "topic": self.topic,
             "params": self.params,
+            "system_prompt_version": self.system_prompt_version,
+            "system_prompt_sha256": self.system_prompt_sha256,
+            "user_prompt": self.user_prompt,
             "timestamp": self.timestamp,
             "success": success,
             "attempts": attempts,

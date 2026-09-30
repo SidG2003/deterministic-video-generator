@@ -10,6 +10,12 @@ validator (dvg.ir) is the hard contract; this prompt teaches the model to hit it
 from __future__ import annotations
 
 from .ir import ANIM_TYPES, ELEMENT_TYPES
+from .runlog import prompt_version
+
+# Must match the newest "constrained" entry in docs/prompt-log.md. When the prompt
+# changes, log the new version (with its intent) first, then bump tag and sha.
+SYSTEM_PROMPT_VERSION = "constrained-v1"
+SYSTEM_PROMPT_SHA = "1288d8c9a5e0"
 
 _GUIDE = r"""
 You are an expert explainer-video director. You turn a TOPIC into a scene-graph
@@ -166,3 +172,7 @@ def build_system_prompt() -> str:
         if name not in _GUIDE:
             raise AssertionError(f"animation type '{name}' is undocumented in the prompt")
     return _GUIDE.strip() + "\n\n" + _EXAMPLE.strip()
+
+
+def system_prompt_version() -> str:
+    return prompt_version(SYSTEM_PROMPT_VERSION, SYSTEM_PROMPT_SHA, build_system_prompt())

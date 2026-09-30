@@ -28,7 +28,8 @@ import tempfile
 from pathlib import Path
 
 from . import llm
-from .generate import _slug
+from .generate import DEPTH_HINTS, _slug
+from .runlog import prompt_version
 
 _FENCE = re.compile(r"^```(?:python)?\s*|\s*```$", re.MULTILINE)
 _QUALITY = {"l": "low_quality", "m": "medium_quality", "h": "high_quality", "k": "fourk_quality"}
@@ -178,6 +179,25 @@ def build_freeform_prompt() -> str:
     return _PROMPT.strip()
 
 
+# Must match the newest "freeform" entry in docs/prompt-log.md. When _PROMPT changes,
+# log the new version (with its intent) first, then bump both the tag and the sha.
+FREEFORM_PROMPT_VERSION = "freeform-v2"
+FREEFORM_PROMPT_SHA = "e95431a10de1"
+
+
+def freeform_prompt_version() -> str:
+    return prompt_version(FREEFORM_PROMPT_VERSION, FREEFORM_PROMPT_SHA, build_freeform_prompt())
+
+
+def build_freeform_user_message(topic: str, depth: str = "standard") -> str:
+    """The exact user message a freeform run sends (shared with cold-sim)."""
+    return (
+        f"Topic: {topic.strip()}\n"
+        f"{DEPTH_HINTS.get(depth, DEPTH_HINTS['standard'])}\n"
+        "Write the complete Manim scene."
+    )
+
+
 # --- sandbox: static scan ---------------------------------------------------
 
 def scan_code(code: str) -> None:
@@ -318,19 +338,13 @@ def generate_freeform(
     if client is None:
         client = llm.make_client(model)
 
-    from .generate import DEPTH_HINTS
     from .runlog import timed
 
     system = build_freeform_prompt()
     slug = _slug(topic)
-    user_msg = (
-        f"Topic: {topic.strip()}\n"
-        f"{DEPTH_HINTS.get(depth, DEPTH_HINTS['standard'])}\n"
-        "Write the complete Manim scene."
-    )
+    user_msg = build_freeform_user_message(topic, depth)
     if logger:
-        logger.artifact("system_prompt.txt", system)
-        logger.artifact("prompt.txt", user_msg)
+        logger.record_prompts(system, user_msg, freeform_prompt_version())
     messages = [{"role": "user", "content": user_msg}]
 
     last_error = ""
@@ -361,13 +375,13 @@ def generate_freeform(
             return code, str(out)
         except FreeformError as exc:
             last_error = str(exc)
+            feedback = (
+                f"That scene failed:\n{last_error}\n"
+                "Return the corrected, complete Python code only."
+            )
+            if logger:
+                logger.artifact(f"attempt_{attempt + 1}_feedback.txt", feedback)
             messages.append({"role": "assistant", "content": code})
-            messages.append({
-                "role": "user",
-                "content": (
-                    f"That scene failed:\n{last_error}\n"
-                    "Return the corrected, complete Python code only."
-                ),
-            })
+            messages.append({"role": "user", "content": feedback})
 
     raise FreeformError(f"no working scene after {max_repairs + 1} attempts; last error: {last_error}")

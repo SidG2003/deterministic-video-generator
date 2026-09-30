@@ -22,7 +22,7 @@ from pathlib import Path
 
 from . import llm
 from .ir import IRError, validate_ir
-from .prompt import build_system_prompt
+from .prompt import build_system_prompt, system_prompt_version
 from .runlog import RunLogger, timed
 
 DEFAULT_MODEL = "claude-opus-5"
@@ -83,8 +83,7 @@ def generate_ir(
         "Produce the IR JSON for an explainer video on this topic."
     )
     if logger:
-        logger.artifact("system_prompt.txt", system)
-        logger.artifact("prompt.txt", ask)
+        logger.record_prompts(system, ask, system_prompt_version())
     messages = [{"role": "user", "content": ask}]
 
     last_error = ""
@@ -105,14 +104,14 @@ def generate_ir(
         except (json.JSONDecodeError, IRError) as exc:
             last_error = str(exc)
             # Feed the error back and ask for a corrected full document.
+            feedback = (
+                f"That IR was invalid: {last_error}\n"
+                "Return the corrected, complete JSON object only."
+            )
+            if logger:
+                logger.artifact(f"attempt_{attempt + 1}_feedback.txt", feedback)
             messages.append({"role": "assistant", "content": reply})
-            messages.append({
-                "role": "user",
-                "content": (
-                    f"That IR was invalid: {last_error}\n"
-                    "Return the corrected, complete JSON object only."
-                ),
-            })
+            messages.append({"role": "user", "content": feedback})
 
     raise GenerationError(f"no valid IR after {max_repairs + 1} attempts; last error: {last_error}")
 

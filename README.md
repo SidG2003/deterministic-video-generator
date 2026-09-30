@@ -150,11 +150,15 @@ python -m dvg.build examples/pythagoras.json --quality l
 
 ## Run logs
 Every generation run is archived under `runs/<timestamp>_<mode>_<slug>/` (git-ignored):
-- `prompt.txt`, `system_prompt.txt` — the exact inputs (system prompt is versioned per run since we tune it)
+- `prompt.txt`, `system_prompt.txt` — the exact user message and system prompt sent to the model
 - `attempt_N.txt` / `attempt_N.py` — each LLM attempt (so repair rounds are visible)
+- `attempt_N_feedback.txt` — the repair message sent back after attempt N failed
 - `ir.json` (constrained) or `scene.py` (freeform) — the final artifact
 - `video.mp4` — the rendered output
-- `meta.json` — topic, params, success, attempts, and **per-step timings, CPU usage, and token usage**
+- `meta.json` — topic, params, `user_prompt`, `system_prompt_version` + `system_prompt_sha256`
+  (tag and hash of the exact system prompt, matching [docs/prompt-log.md](docs/prompt-log.md);
+  a `+modified` tag means the prompt was edited without logging a new version),
+  success, attempts, and **per-step timings, CPU usage, and token usage**
 
 Steps timed differ by mode: constrained → `llm_call`, `validate`, `render`;
 freeform → `llm_call`, `scan`, `sandbox_render`, `verify`. `meta.json` aggregates
