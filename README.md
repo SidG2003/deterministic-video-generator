@@ -162,10 +162,10 @@ Every generation run is archived under `runs/<timestamp>_<mode>_<slug>/` (git-ig
 - `meta.json` — topic, params, `user_prompt`, `system_prompt_version` + `system_prompt_sha256`
   (tag and hash of the exact system prompt, matching [docs/prompt-log.md](docs/prompt-log.md);
   a `+modified` tag means the prompt was edited without logging a new version),
-  success, attempts, **per-step timings, CPU usage, token usage**, and `overlaps`
+  success, attempts, **per-step timings, CPU usage, token usage**, `overlaps` and `api_checks`
 
 Steps timed differ by mode: constrained → `llm_call`, `validate`, `render`;
-freeform → `llm_call`, `scan`, `sandbox_render`, `verify`. `meta.json` aggregates
+freeform → `llm_call`, `scan`, `api_check`, `sandbox_render`, `verify`. `meta.json` aggregates
 `step_totals_seconds` so you can see which steps eat the most time. Each step also
 records `cpu_seconds` (user+system CPU, including reaped subprocesses) and
 `cores_used` (`cpu_seconds/seconds`, i.e. cores-equivalent utilization), with
@@ -179,6 +179,17 @@ their 1-based `attempt` number (repair rounds), so a specific attempt's time,
 CPU, and tokens are directly identifiable; `token_totals` is keyed by step name
 while `total_tokens` is the whole-run rollup (today only `llm_call` records
 tokens, so they coincide).
+
+### Static API check (knowledge base, layer 1)
+Freeform code is checked against the **installed** ManimCE API before it runs
+(`dvg/kb/`, see [docs/knowledge-base.md](docs/knowledge-base.md)): undefined names,
+scene/camera attributes the scene type lacks, GrowArrow on non-Arrows, helpers called
+with wrong arguments, missing methods. Errors skip the render and go to the repair
+loop all at once; findings are logged in `meta.json` as `api_checks`.
+```bash
+python -m dvg.kb.api Arrow Text     # API reference for classes (from the installed version)
+python -m dvg.kb.check scene.py     # check a scene file
+```
 
 ### Overlap tracking
 Every render (constrained, freeform, cold-sim) runs the shared overlap detector

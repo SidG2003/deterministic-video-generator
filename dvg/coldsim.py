@@ -28,7 +28,7 @@ import shutil
 from pathlib import Path
 
 from .freeform import (FREEFORM_PROMPT_SHA, FREEFORM_PROMPT_VERSION, FreeformError, _run,
-                       _verify, build_freeform_prompt, build_freeform_user_message,
+                       _verify, api_check, build_freeform_prompt, build_freeform_user_message,
                        extract_narration, freeform_prompt_version, overlap_report, scan_code)
 from .runlog import RunLogger, _slug, prompt_version, timed
 
@@ -67,6 +67,8 @@ def coldsim_render(topic: str, code: str, quality: str = "l",
     try:
         with timed(logger, "scan"):
             scan_code(code)
+        with timed(logger, "api_check"):
+            api_check(code, logger)
         with timed(logger, "sandbox_render"):
             proc, media_dir = _run(code, slug, quality, timeout)
         with timed(logger, "verify"):

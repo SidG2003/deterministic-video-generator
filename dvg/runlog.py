@@ -88,6 +88,18 @@ class RunLogger:
         self.system_prompt_version: str | None = None
         self.system_prompt_sha256: str | None = None
         self.overlaps: dict | None = None
+        self.api_checks: list[dict] = []
+
+    def record_api_check(self, findings: list[dict], version: str, attempt: int | None = None) -> None:
+        """Keep the static API checker's findings (dvg/kb/check.py) for one attempt."""
+        errors = [f for f in findings if f["severity"] == "error"]
+        self.api_checks.append({
+            **({"attempt": attempt} if attempt is not None else {}),
+            "checker": version,
+            "errors": len(errors),
+            "warnings": len(findings) - len(errors),
+            "findings": findings[:30],
+        })
 
     def record_overlaps(self, report: dict | None, attempt: int | None = None) -> None:
         """Keep the overlap detector's report (dvg/overlap.py) for the delivered
@@ -204,6 +216,7 @@ class RunLogger:
             "token_totals": token_totals,
             "tokens": self.tokens,
             "overlaps": self.overlaps,
+            "api_checks": self.api_checks,
             "artifacts": self.artifacts,
             "video": self.video,
             "error": error,

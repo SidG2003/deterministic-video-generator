@@ -348,6 +348,23 @@ def overlap_report(media_dir: Path) -> dict | None:
     return read_report(Path(media_dir).parent / "overlaps.json")
 
 
+def api_check(code: str, logger=None, attempt: int | None = None) -> None:
+    """Static ManimCE API check (dvg/kb/check.py) before anything runs. Logs all
+    findings; raises a repairable FreeformError listing EVERY certain crash at once
+    (a runtime crash would only show the first, possibly minutes into a render)."""
+    from .kb.check import CHECKER_VERSION, as_dicts, check_code
+
+    findings = check_code(code)
+    if logger is not None:
+        logger.record_api_check(as_dicts(findings), CHECKER_VERSION, attempt)
+    errors = [f for f in findings if f.severity == "error"]
+    if errors:
+        lines = "\n".join(f"- {f}" for f in errors)
+        raise FreeformError(
+            f"The code would crash on ManimCE (static API check, {len(errors)} problem(s)); "
+            f"fix every one:\n{lines}")
+
+
 def _verify(proc, media_dir: Path, slug: str) -> str:
     """Tiered verify: (1) ran cleanly, (2) produced a real video. Returns the
     mp4 path on success; raises FreeformError with a repair-able message."""
@@ -411,6 +428,8 @@ def generate_freeform(
         try:
             with timed(logger, "scan", attempt=attempt + 1):
                 scan_code(code)  # fail closed before executing anything
+            with timed(logger, "api_check", attempt=attempt + 1):
+                api_check(code, logger, attempt + 1)  # certain crashes, before rendering
             with timed(logger, "sandbox_render", attempt=attempt + 1):
                 proc, media_dir = _run(code, slug, quality, timeout)
             with timed(logger, "verify", attempt=attempt + 1):
