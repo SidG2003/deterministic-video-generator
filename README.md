@@ -154,14 +154,19 @@ Every generation run is archived under `runs/<timestamp>_<mode>_<slug>/` (git-ig
 - `attempt_N.txt` / `attempt_N.py` — each LLM attempt (so repair rounds are visible)
 - `ir.json` (constrained) or `scene.py` (freeform) — the final artifact
 - `video.mp4` — the rendered output
-- `meta.json` — topic, params, success, attempts, and **per-step timings and token usage**
+- `meta.json` — topic, params, success, attempts, and **per-step timings, CPU usage, and token usage**
 
 Steps timed differ by mode: constrained → `llm_call`, `validate`, `render`;
 freeform → `llm_call`, `scan`, `sandbox_render`, `verify`. `meta.json` aggregates
-`step_totals_seconds` so you can see which steps eat the most time. Each
-`llm_call` also records its token usage (`input_tokens`, `output_tokens`,
-`cache_creation_input_tokens`, `cache_read_input_tokens`), aggregated per step
-in `token_totals` and overall in `total_tokens`, so you can see cost alongside time.
+`step_totals_seconds` so you can see which steps eat the most time. Each step also
+records `cpu_seconds` (user+system CPU, including reaped subprocesses) and
+`cores_used` (`cpu_seconds/seconds`, i.e. cores-equivalent utilization), with
+`step_totals_cpu_seconds`, `total_cpu_seconds`, and the machine's `cpu_count` — so
+you can see, e.g., that `llm_call` is I/O-bound (~0 cores) while `render` is
+CPU-bound (~1 core). Each `llm_call` also records its token usage (`input_tokens`,
+`output_tokens`, `cache_creation_input_tokens`, `cache_read_input_tokens`),
+aggregated per step in `token_totals` and overall in `total_tokens`, so you can
+see cost alongside time.
 
 ## Not yet installed
 - **manim-voiceover** — TTS + auto-timed narration. Planned for Phase 1c.
