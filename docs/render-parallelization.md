@@ -66,6 +66,27 @@ each representation carries.
 - Frame-render-only wall (import excluded), `how_dns_lookup`:
   - l/480p 1.3s · m/720p 2.1s · h/1080p 4.9s · k/4K 11.9s
 
+## Measured CPU utilization (per-step, from meta.json)
+Run logs now record `cpu_seconds` + `cores_used` (= cpu_seconds/wall) per step
+(see dvg/runlog.py, via os.times() — process + reaped subprocesses). On a
+**16-core** machine:
+- `llm_call`: **~0.02 cores** — purely I/O-bound (network wait), ~0 local CPU.
+- `render` (constrained, in-process): **~1.08 cores**.
+- `sandbox_render` (freeform, subprocess): **~0.92 cores**.
+
+→ **A render is essentially single-threaded (~1 core), leaving ~15 cores idle.**
+This has a big implication for *how* to parallelize:
+- **Across videos (batch concurrency): nearly free.** Running N independent
+  renders at once barely contends for CPU until N approaches the core count —
+  no need to split any single video at all.
+- **Within one video (segment split): still import-bound.** The idle cores don't
+  change the per-worker ~2s Manim import, so the crossover verdict below stands.
+
+Note on measurement: `cpu_seconds` is an exact per-process counter (other
+machine activity can't inflate it); only the `cores_used` denominator (wall) can
+be stretched under heavy contention. A *live/system-wide* sampler (psutil) would
+instead capture ALL processes and wobble run-to-run, which is why we don't use it.
+
 ## The verdict (plug in the numbers)
 Parallel wall ≈ `import(1.95s)` + `longest_segment_render` + concat/spawn(~0.3s).
 - **l/m quality:** the ~2s import **exceeds the entire frame-render workload**
@@ -92,6 +113,11 @@ Parallel wall ≈ `import(1.95s)` + `longest_segment_render` + concat/spawn(~0.3
 - The biggest fixed cost is the ~1.95s Manim import. A **persistent warm render
   worker** (import once, render many IRs sequentially) amortizes it across a
   batch with none of the state-dependency risk of splitting a single video.
+- Because a single render only uses ~1 core (see CPU section), the strongest
+  win is **batch concurrency**: render many independent videos in parallel
+  (a pool of warm workers up to ~core count). This sidesteps the whole
+  single-video split problem — no `clear`-boundary dependency, no per-video
+  import penalty beyond the pool size — and uses the otherwise-idle cores.
 
 ## If/when implementing Option A
 - Validate output is **byte-identical** to the current single-pass render
