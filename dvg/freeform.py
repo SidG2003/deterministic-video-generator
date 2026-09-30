@@ -257,7 +257,9 @@ try:
     resource.setrlimit(resource.RLIMIT_CPU, ({cpu}, {cpu}))
 except Exception:
     pass
+sys.path.insert(0, "{project_root}")
 from manim import tempconfig
+from dvg import overlap as _overlap
 ns = {{}}
 with open("{code_path}") as f:
     src = f.read()
@@ -268,21 +270,29 @@ if Scene is None:
     sys.exit(3)
 with tempconfig({{"quality": "{quality}", "output_file": "{slug}",
                   "media_dir": "{media_dir}", "disable_caching": True}}):
-    Scene().render()
+    with _overlap.track() as _tracker:
+        try:
+            Scene().render()
+        finally:
+            _overlap.write_report(_tracker, "{report_path}")
 '''
+
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
 
 def _run(code: str, slug: str, quality: str, timeout: int):
     """Execute the (already-scanned) code in an isolated subprocess. Returns
-    (completed_process, media_dir)."""
+    (completed_process, media_dir). The overlap detector's report is written
+    next to media_dir (read it with overlap_report(media_dir))."""
     tmp = Path(tempfile.mkdtemp(prefix="dvg_ff_"))
     code_path = tmp / "scene.py"
     code_path.write_text(code)
     media_dir = tmp / "media"
     runner = tmp / "runner.py"
     runner.write_text(_RUNNER.format(
-        cpu=int(timeout * 2), code_path=str(code_path),
+        cpu=int(timeout * 2), code_path=str(code_path), project_root=str(_PROJECT_ROOT),
         quality=_QUALITY[quality], slug=slug, media_dir=str(media_dir),
+        report_path=str(tmp / "overlaps.json"),
     ))
     # Inherit env so ffmpeg/latex on PATH are found. Spike-level: no network jail.
     try:
@@ -294,6 +304,12 @@ def _run(code: str, slug: str, quality: str, timeout: int):
     except subprocess.TimeoutExpired:
         raise FreeformError(f"render timed out after {timeout}s (possible infinite loop)")
     return proc, media_dir
+
+
+def overlap_report(media_dir: Path) -> dict | None:
+    """The overlap detector report written by the sandbox runner for this render."""
+    from .overlap import read_report
+    return read_report(Path(media_dir).parent / "overlaps.json")
 
 
 def _verify(proc, media_dir: Path, slug: str) -> str:
@@ -368,6 +384,7 @@ def generate_freeform(
             out = dest / f"{slug}.mp4"
             shutil.copy(mp4, out)
             if logger:
+                logger.record_overlaps(overlap_report(media_dir), attempt=attempt + 1)
                 logger.artifact("scene.py", code)
                 import json as _json
                 logger.artifact("narration.json",

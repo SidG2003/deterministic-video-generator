@@ -29,7 +29,7 @@ from pathlib import Path
 
 from .freeform import (FREEFORM_PROMPT_SHA, FREEFORM_PROMPT_VERSION, FreeformError, _run,
                        _verify, build_freeform_prompt, build_freeform_user_message,
-                       extract_narration, freeform_prompt_version, scan_code)
+                       extract_narration, freeform_prompt_version, overlap_report, scan_code)
 from .runlog import RunLogger, _slug, prompt_version, timed
 
 
@@ -77,6 +77,7 @@ def coldsim_render(topic: str, code: str, quality: str = "l",
         shutil.copy(mp4, out)
         video = str(out)
         logger.save_video(video)
+        logger.record_overlaps(overlap_report(media_dir))
         logger.artifact("narration.json",
                         json.dumps(extract_narration(code), indent=2, ensure_ascii=False) + "\n")
     except FreeformError as exc:

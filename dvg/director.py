@@ -59,6 +59,7 @@ class Director:
 
     def _render_beat(self, scene: Scene, beat: Beat) -> None:
         canvas = self.canvas
+        scene.dvg_context = f"beat {beat.id}"  # lets the overlap detector name the beat
 
         # 1. build this beat's NEW independent elements onto the shared canvas
         for el in beat.elements:

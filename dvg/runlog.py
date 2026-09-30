@@ -73,6 +73,14 @@ class RunLogger:
         self.user_prompt: str | None = None
         self.system_prompt_version: str | None = None
         self.system_prompt_sha256: str | None = None
+        self.overlaps: dict | None = None
+
+    def record_overlaps(self, report: dict | None, attempt: int | None = None) -> None:
+        """Keep the overlap detector's report (dvg/overlap.py) for the delivered
+        video; written to meta.json as `overlaps`."""
+        if report is None:
+            return
+        self.overlaps = {**({"attempt": attempt} if attempt is not None else {}), **report}
 
     def record_prompts(self, system_prompt: str | None, user_prompt: str,
                        system_prompt_version: str | None = None) -> None:
@@ -181,6 +189,7 @@ class RunLogger:
             "total_tokens": total_tokens,
             "token_totals": token_totals,
             "tokens": self.tokens,
+            "overlaps": self.overlaps,
             "artifacts": self.artifacts,
             "video": self.video,
             "error": error,

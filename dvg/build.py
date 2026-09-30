@@ -30,9 +30,19 @@ def _slug(text: str) -> str:
 
 
 def render(ir_path: str, quality: str = "l") -> str:
+    return render_with_report(ir_path, quality)[0]
+
+
+def render_with_report(ir_path: str, quality: str = "l",
+                       config_overrides: dict | None = None) -> tuple[str, dict]:
+    """Render the IR and return (video_path, overlap_report) — the same overlap
+    detector every mode uses (dvg/overlap.py)."""
+    from .overlap import track
+
     video = load_video(ir_path)
     style = get_style(video.style, video.seed)
     name = _slug(video.title)
+    media_dir = (config_overrides or {}).get("media_dir", "media")
 
     class IRScene(MovingCameraScene):
         def construct(self):
@@ -44,13 +54,15 @@ def render(ir_path: str, quality: str = "l") -> str:
             "output_file": name,
             "media_dir": "media",
             "disable_caching": True,
+            **(config_overrides or {}),
         }
     ):
-        IRScene().render()
+        with track() as tracker:
+            IRScene().render()
 
-    matches = sorted(glob.glob(f"media/videos/**/{name}.mp4", recursive=True),
+    matches = sorted(glob.glob(f"{media_dir}/videos/**/{name}.mp4", recursive=True),
                      key=lambda p: Path(p).stat().st_mtime)
-    return matches[-1] if matches else ""
+    return (matches[-1] if matches else ""), tracker.report()
 
 
 def main() -> None:
@@ -59,8 +71,10 @@ def main() -> None:
     parser.add_argument("--quality", choices=list(_QUALITY), default="l",
                         help="l=480p (default), m=720p, h=1080p, k=4K")
     args = parser.parse_args()
-    out = render(args.ir_path, args.quality)
+    out, report = render_with_report(args.ir_path, args.quality)
     print(f"\nRendered: {out}" if out else "\nRender finished but output not found.")
+    print(f"Overlaps: {report['overlap_pairs']} text overlaps, {report['clipped_texts']} clipped, "
+          f"{report['edge_texts']} at edge, {report['tiny_texts']} tiny")
 
 
 if __name__ == "__main__":

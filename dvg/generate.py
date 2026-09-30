@@ -180,12 +180,13 @@ def main() -> None:
     print(f"Wrote {out}  ({len(data.get('beats', []))} beats)")
 
     if args.render:
-        from .build import render
+        from .build import render_with_report
 
         print("Rendering …")
         with timed(logger, "render"):
-            video = render(str(out), args.quality)
+            video, report = render_with_report(str(out), args.quality)
         logger.save_video(video)
+        logger.record_overlaps(report)
         print(f"Rendered: {video}" if video else "Render finished but output not found.")
 
     logger.finish(True)

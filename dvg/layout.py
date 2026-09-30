@@ -2,10 +2,13 @@
 Layout engine — the robustness half of the architecture.
 
 Placement is driven by *measured* mobject sizes (Manim's arrange/next_to/to_edge
-operate on real bounding boxes), so text can't overflow a box and elements in
-different bands (top/center/bottom) can't collide, regardless of content length.
-This is what structurally eliminates the overlap class of bugs the fixed
-template hit — no matter what the generator throws at it.
+operate on real bounding boxes), so text can't overflow a box and the elements a
+beat places in one slot are spaced apart regardless of content length.
+
+Limitation (measured with dvg/overlap.py): only the elements named in a beat's
+layout are arranged. Objects persisting from earlier beats, or several slots in
+the same band, can still collide — LLM-written IRs showed 4-13 overlapping text
+pairs each. Overlaps are tracked per run in meta.json.
 
 A layout is a set of slots; each slot places a group of elements in a screen
 band with an arrangement (stack/row/none).

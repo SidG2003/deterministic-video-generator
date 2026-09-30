@@ -7,15 +7,17 @@ Deterministic (no-AI-video-model) explainer/story video generation using
 
 Novelty per video comes from freely *composing* and *styling* a scene-graph, not
 from a fixed set of templates. Robustness comes from that scene-graph being
-validated data (not code) and a layout engine that guarantees legibility.
+validated data (not code) and a layout engine that places each beat's elements by
+measured size (it does not yet prevent collisions with objects that persist from
+earlier beats — overlaps are tracked per run, see Run logs).
 
 ```
 topic ──► (generator: LLM/planner) ──► IR JSON ──► [ validate ] ──► [ layout ] ──► [ style ] ──► Manim ──► MP4
-             novel & intelligent          data        safe          no-overlap      look        deterministic
+             novel & intelligent          data        safe          measured        look        deterministic
 ```
 
 - `dvg/ir.py` — scene-graph schema + strict validation (the generator's contract)
-- `dvg/layout.py` — measured, no-overlap placement (kills the overlap bug class)
+- `dvg/layout.py` — measured placement within a beat's layout slots
 - `dvg/style.py` — palette/typography/motion presets (novelty-in-look lever)
 - `dvg/elements.py` — IR element → Manim mobject factories
 - `dvg/director.py` — interprets IR against a Manim Scene
@@ -60,7 +62,9 @@ live on its own resource — and pass the deployment name as `--model`. See
 
 ### Two modes: `--mode constrained` (default) vs `--mode freeform`
 - **constrained** (default): the LLM writes safe IR against our vocabulary;
-  validation is static/instant; rendering is deterministic; layout can't overlap.
+  validation is static/instant; rendering is deterministic; layout spaces each
+  beat's elements, but LLM-written IRs can still overlap (objects persisting from
+  earlier beats, several elements in one band) — measured by the overlap detector.
 - **freeform**: the LLM writes a COMPLETE Manim scene (Python), which is
   sandboxed, rendered, verified, and repaired on failure. Max expressiveness,
   but crashes/off-screen/overlaps are possible and "validation" means actually
@@ -158,7 +162,7 @@ Every generation run is archived under `runs/<timestamp>_<mode>_<slug>/` (git-ig
 - `meta.json` — topic, params, `user_prompt`, `system_prompt_version` + `system_prompt_sha256`
   (tag and hash of the exact system prompt, matching [docs/prompt-log.md](docs/prompt-log.md);
   a `+modified` tag means the prompt was edited without logging a new version),
-  success, attempts, and **per-step timings, CPU usage, and token usage**
+  success, attempts, **per-step timings, CPU usage, token usage**, and `overlaps`
 
 Steps timed differ by mode: constrained → `llm_call`, `validate`, `render`;
 freeform → `llm_call`, `scan`, `sandbox_render`, `verify`. `meta.json` aggregates
@@ -175,6 +179,23 @@ their 1-based `attempt` number (repair rounds), so a specific attempt's time,
 CPU, and tokens are directly identifiable; `token_totals` is keyed by step name
 while `total_tokens` is the whole-run rollup (today only `llm_call` records
 tokens, so they coincide).
+
+### Overlap tracking
+Every render (constrained, freeform, cold-sim) runs the shared overlap detector
+(`dvg/overlap.py`). After each animation it checks the visible text on screen and
+writes a report to `meta.json` as `overlaps`: `overlap_pairs` (two separate text
+objects colliding), `clipped_texts` (partly off-frame), `edge_texts` (touching the
+frame border), `tiny_texts` (effective font size < 18), `max_texts_on_screen`, plus
+the individual issues with time and source line (freeform) or beat id (constrained).
+It only measures — it never fails a run — so prompts, models and modes can be
+compared on the same numbers. Thresholds live in the report; the detector is
+versioned (`overlap-v1`) like the prompts.
+
+Score existing runs without re-rendering (no frames are drawn, so it's fast):
+```bash
+python -m dvg.overlap runs/*/            # print a table
+python -m dvg.overlap runs/<dir> --write # also store the report in meta.json
+```
 
 ## Not yet installed
 - **manim-voiceover** — TTS + auto-timed narration. Planned for Phase 1c.
