@@ -41,9 +41,11 @@ cp .env.example .env                # then fill in a key for your provider
 python -m dvg.generate "How does a DNS lookup work?" --style midnight --render
 ```
 Provider is chosen from `--model`: `claude-*` → Anthropic (`ANTHROPIC_API_KEY`),
-`gpt-*`/`o*` → OpenAI, or Azure OpenAI when `AZURE_OPENAI_ENDPOINT` is set (pass
-the Azure deployment name as `--model`). See [.env.example](.env.example) for the
-full list of variables. Keys load automatically from `.env` (gitignored).
+`gpt-*`/`o*` → Azure OpenAI or public OpenAI. For Azure, configure one numbered
+block per deployment (`AZURE_OPENAI_<N>_ENDPOINT/DEPLOYMENT/API_KEY`) — each can
+live on its own resource — and pass the deployment name as `--model`. See
+[.env.example](.env.example) for all variables. Keys load automatically from
+`.env` (gitignored).
 - `dvg/prompt.py` — the pedagogy + schema system prompt (self-checks that it
   documents every element/animation the renderer supports).
 - `dvg/generate.py` — the LLM call + repair loop (`--out`, `--render`, `--model`).
