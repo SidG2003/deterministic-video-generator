@@ -1,125 +1,135 @@
-# Render parallelization — findings (not implemented)
+# Render parallelization — findings (not implemented yet)
 
-Notes from investigating whether constrained-mode renders can be split and
-rendered in parallel (e.g. scene/beat-wise). Conclusion: **not worth building
-at current scale; revisit only for 4K or long-form output.** Kept for later.
+Notes from investigating whether renders can be split and rendered in parallel.
+All numbers: one 16-core Mac, 480p (`-ql`) unless noted, Manim 0.21.0 (pinned).
 
-## Why "it's deterministic" isn't enough
-- Determinism (same IR + seed → same frames) gives *reproducibility*, not
-  *independence*. Parallelism needs independent units.
-- The `Director` keeps a single `self.canvas` (id → mobject) that **persists and
-  mutates across all beats** (`dvg/director.py`). Beat N's starting visual state
-  is the accumulated result of beats 0..N-1 → a sequential data dependency (like
-  a reduce, not a map). So a beat can't be rendered in isolation without first
-  reconstructing all prior state.
+## Summary (current verdict)
+- **Short constrained clips at l/m quality: not worth it.** The ~2s Manim import
+  per worker exceeds the whole frame-render workload (1.3–2.1s).
+- **Long freeform films with heavy scenes: worth it.** Measured on the "entropy"
+  film: **63.5s → 24.0s (2.65×)** with output bit-identical to the sequential
+  render, by combining two techniques:
+  1. **Section split** — render independent sections in parallel, concat.
+  2. **Exact time-slicing** — split any scene at `play()` boundaries; each worker
+     fast-forwards the earlier animations without rasterizing them.
+- Time-slicing needs **no special code structure** — it works on any
+  deterministic Manim scene, including continuous (non-sectioned) freeform.
+- Parallel rendering is orthogonal to how the code is generated.
 
-## Constrained vs freeform: why only one is splittable
-The gap isn't incidental — it comes from how much machine-readable structure
-each representation carries.
+## Corrections to earlier claims in this doc
+Earlier versions overstated several points; corrected by measurement:
+1. ~~"Not worth building at current scale"~~ → true only for short constrained
+   clips at l/m. Heavy freeform films measured 2.65× faster.
+2. ~~Freeform is "effectively unsplittable" / "whole-video only"~~ → wrong.
+   Sectioned freeform splits at sections (verified 1422/1422 identical frames),
+   and *any* freeform scene splits by time-slicing (verified 357/357 on a
+   continuous scene).
+3. ~~"Making freeform splittable reinvents constrained mode"~~ → wrong. Sectioned
+   freeform keeps full Manim expressiveness inside each section; only
+   cross-section continuity (morphing objects across sections) is lost. And
+   time-slicing needs no generation change at all.
+4. ~~"Option B needs an instant-finish path; more work/risk"~~ → Manim's own
+   `from_animation_number`/`upto_animation_number` plus three small patches give
+   an **exact** fast-forward. Manim's default "instant finish" skip is precisely
+   what produces *wrong* frames (see pitfalls).
+5. ~~"Both options are constrained-mode only"~~ → wrong; both work on freeform.
+6. ~~"Within one video: still import-bound"~~ → only when segments are short.
+   Heavy freeform segments render 10–50s each, so the ~2s import is minor.
+7. ~~"Determinism is not the differentiator; structure is"~~ → too strong.
+   Determinism + in-order execution is exactly what makes time-slicing exact.
+   Structure only buys the cheaper section split (no fast-forward needed).
 
-| | Constrained | Freeform |
-|---|---|---|
-| Representation | declarative IR (data) | arbitrary Python (`construct()`) |
-| Cut points | explicit `clear` beats, found by scanning | none guaranteed; whole-video only |
-| State model | explicit `canvas` dict + `clear()` | opaque local variables |
-| Reconstruct mid-state | cheap declarative replay | must execute; no clean boundary |
-| Splittable? | **yes (at clears)** | **effectively no** |
+## Why "it's deterministic" isn't enough on its own
+- Determinism (same input → same frames) gives reproducibility, not independent
+  units. Scenes carry evolving state (constrained: the `Director`'s persistent
+  `canvas`; freeform: Python locals, ValueTrackers, updaters, camera).
+- Two ways around that:
+  - **Cut where no state carries** (constrained `clear` beats; freeform sections
+    that end on an empty screen) → units are independent.
+  - **Reconstruct the state cheaply** → time-slicing with exact fast-forward.
 
-- Constrained renders from validated IR, so a splitter can find boundaries and
-  know exactly what persists **without executing anything**.
-- Freeform is one monolithic `construct()` with locals and interleaved
-  play/wait; "sections" (e.g. the `NARRATION` list) are conventions, not
-  guaranteed-independent units, and state lives in Python locals with no
-  `clear` concept. The same expressiveness that makes it flexible makes it
-  opaque to a splitter.
-- Making freeform splittable would require changing **generation** (force
-  self-contained per-section scenes with no shared locals) — which fights the
-  point of freeform and essentially reinvents constrained mode.
-- Note: determinism is **not** the differentiator — freeform is also largely
-  deterministic (sandbox allowlist is `manim/numpy/math/random`, no os/time/net,
-  prompt requires `random.seed(0)`). Structure/introspectability is what buys
-  parallelism, and only constrained has it.
+## Technique 1 — section split (independent units)
+Requirements a section must meet (the entropy film met all of them):
+- sets its own camera at the start; starts/stops its own ambient rotation;
+- ends with no **visible** objects (invisible zero-point `Mobject`s are harmless);
+- shares no `self.*` state with other sections (locals are method-scoped);
+- gets its **own RNG seed** (the film seeded once globally and drew from the
+  shared stream across sections — rendered alone, a section got different values).
 
-## Natural split points
-- `clear=True` beats fully empty the canvas → true "hard cuts" with no carried
-  state. Segments between clears are genuinely independent.
-- Confirmed independence-friendly facts: beats do **not** consume the `random`
-  stream during rendering (seed is a future hook; `style.py` seeds separately),
-  and the camera resets from a fixed snapshot. So clear-boundary segments need
-  no RNG/camera fast-forward.
+## Technique 2 — exact time-slicing (any scene)
+Render slice `[a, b]` with `from_animation_number=a, upto_animation_number=b`.
+Earlier animations are skipped, and three patches make that skip exact:
+1. Step skipped animations **frame by frame** (Manim's skip collapses each
+   animation into one time step).
+2. **Don't rasterize** skipped frames (rasterizing is the expensive part).
+3. After each skipped animation, run the **post-animation updater pass** too
+   (Manim does `update_mobjects(0)` only when *not* skipping).
+- Fast-forward cost is negligible here (heavy slice: 20.6s vs 20.1s without it),
+  but grows for scenes with heavy per-frame Python updaters.
+- Granularity is one `play()`/`wait()` call; the longest single animation is the
+  floor on wall time.
+- Patches touch Manim internals → keep Manim pinned and guard with a frame-hash
+  regression test (sequential vs sliced on a fixture scene).
+- Constrained mode also runs as plays in one `construct()`, so this should make
+  zero-`clear` IRs splittable too — **hypothesis, not yet tested.**
 
-## Measured clear boundaries (sample IRs)
-| IR | beats | clears | segments |
-|---|--:|--:|--:|
-| continuity_demo, graph_demo, internet_history, pythagoras, transform_demo | 1–3 | 0 | **1 (unsplittable)** |
-| how_dns_lookup | 5 | 1 | 2 |
-| cache_explainer | 3 | 2 | 3 |
-| what_is_a_hash_table | 6 | 2 | 3 |
-| compound_interest | 4 | 3 | 4 |
+## KPIs — the "entropy" freeform film (8 sections, 480p, 1422 frames)
+| Run | Wall (incl. import) | Workers | Output vs sequential |
+|---|--:|--:|---|
+| Sequential, 1 process | **63.5s** | 1 | baseline |
+| Section-parallel, **shared** media dir | 51.7s | 8 | ❌ 2 sections crashed; others corrupted (1417 frames) |
+| Section-parallel, isolated media dirs | **50.4s** | 8 | ✅ 1422/1422 bit-identical |
+| Section-parallel + heavy section in 3 exact slices | **24.0s** | 10 | ✅ each part verified bit-identical |
+- Section render times: seven sections 1.1–3.1s each; `entropy_landscape` (3D
+  surface + rotating camera) **49.5s = 78%** → the critical path until sliced.
+- Lossless concat (`ffmpeg -f concat -c copy`): 0.15s, no frames dropped.
+- Same section rendered twice → identical frames (the parallel path is deterministic).
+- The original 1080p render of this film took 250s sequentially; a similar
+  ratio is expected at 1080p but **not measured**.
 
-→ 5 of 9 have **zero** clears (can't split via this method); the rest give only
-2–4 segments (median ~2).
+## KPIs — optimizing the heavy 3D scene (`entropy_landscape` alone, 232 frames)
+| Variant | Wall | Visual result |
+|---|--:|---|
+| Baseline (40×40 surface, 1,600 faces) | 50.5s | reference |
+| Lower resolution (24×24) | 22.9s | ❌ visibly faceted, banded gradient (loses the wow) |
+| OpenGL renderer | — | ❌ crashes on this code (would need a rewrite) |
+| Time-sliced, Manim default skip | 23.4s | ❌ marble trail drawn as a straight line |
+| **Time-sliced, exact fast-forward (3 slices)** | **23.3s** | ✅ 232/232 bit-identical |
+- Remaining floor: the single 6s marble animation (22.7s). Generating heavy
+  scenes as several shorter plays would let slicing go finer (not yet tested).
+- Continuous semaphore scene (32 plays, 3 slices): 350/357 without patch 3 (the
+  counter showed a stale "2" instead of "3"), **357/357** with it.
 
-## Measured costs (single machine)
-- **Fixed per-process overhead ≈ 1.95s**, almost all Manim import. Paid once in
-  serial, but **once per worker** in parallel.
-- Frame-render-only wall (import excluded), `how_dns_lookup`:
-  - l/480p 1.3s · m/720p 2.1s · h/1080p 4.9s · k/4K 11.9s
+## Pitfalls found (must handle in any implementation)
+- **Shared `media_dir` breaks parallel renders** in two ways:
+  - LaTeX cache race → `MathTex` sections crash (dvisvgm error);
+  - with caching off, partial clips are named `uncached_00000.mp4`, … under the
+    scene class name → workers overwrite each other's clips (silent corruption).
+  → **one isolated media dir per worker.**
+- **Shared RNG stream** across sections → seed each section explicitly.
+- **Pixel-average metrics hide semantic errors**: the broken marble trail scored
+  a mean diff of only 0.86/255. Verify with exact frame hashes plus visual review.
 
-## Measured CPU utilization (per-step, from meta.json)
-Run logs now record `cpu_seconds` + `cores_used` (= cpu_seconds/wall) per step
-(see dvg/runlog.py, via os.times() — process + reaped subprocesses). On a
-**16-core** machine:
-- `llm_call`: **~0.02 cores** — purely I/O-bound (network wait), ~0 local CPU.
-- `render` (constrained, in-process): **~1.08 cores**.
-- `sandbox_render` (freeform, subprocess): **~0.92 cores**.
+## Constrained mode data (from the first pass)
+- `clear` boundaries: 5 of 9 sample IRs have **zero** clears; the rest give 2–4
+  segments (median ~2). Time-slicing would remove this limit (untested).
+- Fixed per-process overhead ≈ **1.95s** (almost all Manim import).
+- Frame-render wall (import excluded), `how_dns_lookup`: l 1.3s · m 2.1s ·
+  h 4.9s · k 11.9s → at l/m the import exceeds the work (break-even or slower);
+  at 4K a 2-way split saves ~40%.
 
-→ **A render is essentially single-threaded (~1 core), leaving ~15 cores idle.**
-This has a big implication for *how* to parallelize:
-- **Across videos (batch concurrency): nearly free.** Running N independent
-  renders at once barely contends for CPU until N approaches the core count —
-  no need to split any single video at all.
-- **Within one video (segment split): still import-bound.** The idle cores don't
-  change the per-worker ~2s Manim import, so the crossover verdict below stands.
+## CPU utilization (from run logs)
+- `llm_call` ~0.02 cores (network wait); a render ~1 core (Manim/Cairo is
+  single-threaded) → ~15 of 16 cores idle during a render.
+- So both **batch concurrency across videos** and **splitting one heavy video**
+  use otherwise-idle cores. Cap workers by cores and RAM.
+- `cpu_seconds` is an exact per-process counter (os.times()); unrelated machine
+  activity can't inflate it, whereas a live psutil sampler would.
 
-Note on measurement: `cpu_seconds` is an exact per-process counter (other
-machine activity can't inflate it); only the `cores_used` denominator (wall) can
-be stretched under heavy contention. A *live/system-wide* sampler (psutil) would
-instead capture ALL processes and wobble run-to-run, which is why we don't use it.
-
-## The verdict (plug in the numbers)
-Parallel wall ≈ `import(1.95s)` + `longest_segment_render` + concat/spawn(~0.3s).
-- **l/m quality:** the ~2s import **exceeds the entire frame-render workload**
-  (1.3–2.1s). 2-way split of `how_dns` at l ≈ 2.9s vs 3.25s serial — ~10% before
-  contention/uneven segments erase it. **Break-even or net slower.**
-- **4K:** `how_dns` at k ≈ 8.2s (2-way) vs 13.85s serial → **~40%**; a 4-segment
-  4K video ~50–60%. **Worth it.**
-- **Crossover rule of thumb:** per-segment render must comfortably exceed the
-  ~2s import for parallelism to win → 4K or much longer videos, AND only the
-  ~half of videos that contain `clear` cuts, at 2–4× width.
-
-## Options (if revisited)
-- **Option A — split at `clear` boundaries + ffmpeg concat.** Highest
-  correctness-per-effort; segments are already independent. Limited by clear
-  count; useless for 0-clear videos.
-- **Option B — split anywhere via state fast-forward.** Each worker replays
-  prior beats in a no-frame "advance to end state" mode, then renders its beats.
-  More parallelism, but needs an instant-finish path for animations
-  (camera/layout end states) and adds redundant replay cost. More work/risk.
-- Both options are **constrained-mode only** (see the mode comparison above);
-  freeform has no beat structure to partition.
-
-## Higher-leverage alternative at current scale
-- The biggest fixed cost is the ~1.95s Manim import. A **persistent warm render
-  worker** (import once, render many IRs sequentially) amortizes it across a
-  batch with none of the state-dependency risk of splitting a single video.
-- Because a single render only uses ~1 core (see CPU section), the strongest
-  win is **batch concurrency**: render many independent videos in parallel
-  (a pool of warm workers up to ~core count). This sidesteps the whole
-  single-video split problem — no `clear`-boundary dependency, no per-video
-  import penalty beyond the pool size — and uses the otherwise-idle cores.
-
-## If/when implementing Option A
-- Validate output is **byte-identical** to the current single-pass render
-  (determinism makes seams line up). Concat losslessly (`ffmpeg -f concat -c copy`).
-- Add a `--parallel N` flag to `dvg.build`; group beats at clear boundaries.
+## Next steps
+- Build a parallel render engine (isolated dirs, per-section seeding, exact
+  time-slicing, lossless concat, frame-hash regression test) as an **opt-in**
+  path; the default sequential render stays unchanged.
+- Generation-side guidance for heavy scenes: several shorter plays, no
+  `always_redraw` of large objects, moderate surface resolutions.
+- Test time-slicing on constrained IRs.
