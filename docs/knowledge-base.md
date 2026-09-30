@@ -44,22 +44,49 @@ Introspecting the installed package can't drift, and regenerates if Manim is upg
 The API reference affects correctness only, not the look: it never shows the
 model example scenes.
 
-## Layer 2 — technique snippets (not built; build only if measured need)
-Risk: examples make videos look engineered/templated. Mitigations to apply:
-- Snippets are **technique-level** (how to call things, 10–30 lines), never whole
-  scenes or compositions.
-- Retrieved only when a scene needs that technique; several varied snippets per
-  technique; rotate them.
-- Labelled in the prompt as API usage references — "design your own composition".
-- Measure copying: code similarity between generated scenes and the snippets,
-  plus visual review of variety across videos.
-- Every snippet must render and score clean on the overlap detector.
+## Layer 2 — technique recipes + manimgl translation (built; delivery not decided)
+Built as content only — nothing is sent to the model yet. How it reaches the
+model (prompt menu, per-scene retrieval in fan-out, repair hints) is decided later.
 
-## Layer 3 — layout helpers and design recipes (not built)
+**manimgl -> ManimCE translation table** (`dvg/kb/manimgl.py`, 19 entries).
+Models trained on 3b1b's code mix manimgl names into ManimCE (the invented
+`Checkmark` is a 3b1b class used 44 times in 3b1b/videos 2020-2026). Covers renamed
+classes (ShowCreation->Create, FlashAround->Circumscribe, ParametricCurve->
+ParametricFunction, ...), same-name traps the static checker can't see (manimgl
+`Tex` is maths, ManimCE `Tex` is text mode -> use MathTex), camera differences
+(`self.frame` -> `self.camera.frame` in MovingCameraScene), methods
+(set_backstroke -> set_stroke(..., background=True)) and missing classes
+(GlowDot, Checkmark, Pi creatures). `lookup(name)` returns the advice for a name.
+
+**Technique recipes** (`dvg/kb/techniques/`, 11 techniques, 12 snippets). Each is a
+standalone ManimCE scene file: a docstring with Technique / When / Why / How /
+Pitfalls / In 3b1b / Tags, then short example scenes (10-31 lines). Chosen by how
+much 3b1b relies on them, measured by counting calls in 3b1b/videos 2020-2026
+(164 files, commit 306a134): staggered reveal (lag_ratio ~3,000), copy-and-move
+(TransformFromCopy ~1,160), planned end state (generate_target/MoveToTarget ~800),
+formula morph + colour-coded maths, annotate & emphasize (SurroundingRectangle
+~1,000, Brace ~380), live values (updaters ~1,390), graphs on axes, 3D surface
+with camera (frame.reorient ~1,080), motion along a path with glow, legibility
+over busy visuals (set_backstroke ~330), labelled flow diagrams. Snippets are
+original ManimCE code; 3b1b code was read for these counts and ideas only.
+
+**Verification** (`python -m dvg.kb.verify [--render DIR]`): the table is checked
+against the installed ManimCE; every technique must have all fields, pass the
+static API check, run to the end, and score 0 on the overlap detector
+(overlapping, clipped, edge, tiny text). `--render` also renders each snippet
+and writes a contact sheet for visual review. Current status: all pass; visual
+review done (clean; the legibility demo is subtle — its background is sparse).
+
+**Keeping it from looking templated** (applies when delivery is decided):
+- Snippets are technique-level (how to call things), never whole scenes.
+- Retrieve only for scenes that need that technique; several varied snippets
+  per technique; label them as API references ("design your own composition").
+- Measure copying: code similarity between generated scenes and snippets, plus
+  visual review of variety across videos.
+
+## Layer 3 — layout helpers (not built)
 - Layout helpers the model calls (`title_band`, `caption`, `label`,
   `clear_section`) — overlap-safe by construction.
-- Design recipes inspired by 3b1b (in our words), each paired with a checked
-  ManimCE snippet.
 
 ## Versioning
 Each layer is versioned (`api-check-v1`, prompt tags, `overlap-v1`) and logged

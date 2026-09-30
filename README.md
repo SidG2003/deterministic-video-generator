@@ -189,7 +189,11 @@ loop all at once; findings are logged in `meta.json` as `api_checks`.
 ```bash
 python -m dvg.kb.api Arrow Text     # API reference for classes (from the installed version)
 python -m dvg.kb.check scene.py     # check a scene file
+python -m dvg.kb.verify             # verify the KB: manimgl table + technique snippets
 ```
+The knowledge base also holds a manimgl -> ManimCE translation table and 11
+technique recipes with verified ManimCE snippets (`dvg/kb/techniques/`); they are
+not sent to the model yet — see the doc for status.
 
 ### Overlap tracking
 Every render (constrained, freeform, cold-sim) runs the shared overlap detector
