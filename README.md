@@ -166,7 +166,11 @@ you can see, e.g., that `llm_call` is I/O-bound (~0 cores) while `render` is
 CPU-bound (~1 core). Each `llm_call` also records its token usage (`input_tokens`,
 `output_tokens`, `cache_creation_input_tokens`, `cache_read_input_tokens`),
 aggregated per step in `token_totals` and overall in `total_tokens`, so you can
-see cost alongside time.
+see cost alongside time. Per-attempt `steps[]` and `tokens[]` entries each carry
+their 1-based `attempt` number (repair rounds), so a specific attempt's time,
+CPU, and tokens are directly identifiable; `token_totals` is keyed by step name
+while `total_tokens` is the whole-run rollup (today only `llm_call` records
+tokens, so they coincide).
 
 ## Not yet installed
 - **manim-voiceover** — TTS + auto-timed narration. Planned for Phase 1c.

@@ -89,14 +89,14 @@ def generate_ir(
 
     last_error = ""
     for attempt in range(max_repairs + 1):
-        with timed(logger, "llm_call"):
+        with timed(logger, "llm_call", attempt=attempt + 1):
             reply, tokens, used_model = llm.complete(client, model, system, messages)
         if logger:
-            logger.record_tokens("llm_call", tokens, model=used_model)
+            logger.record_tokens("llm_call", tokens, model=used_model, attempt=attempt + 1)
         if logger:
             logger.artifact(f"attempt_{attempt + 1}.txt", reply)
         try:
-            with timed(logger, "validate"):
+            with timed(logger, "validate", attempt=attempt + 1):
                 data = _extract_json(reply)
                 validate_ir(data)  # the hard contract
             if logger:

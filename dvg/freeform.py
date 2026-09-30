@@ -335,19 +335,19 @@ def generate_freeform(
 
     last_error = ""
     for attempt in range(max_repairs + 1):
-        with timed(logger, "llm_call"):
+        with timed(logger, "llm_call", attempt=attempt + 1):
             reply, tokens, used_model = llm.complete(client, model, system, messages)
         if logger:
-            logger.record_tokens("llm_call", tokens, model=used_model)
+            logger.record_tokens("llm_call", tokens, model=used_model, attempt=attempt + 1)
         code = _FENCE.sub("", reply).strip()
         if logger:
             logger.artifact(f"attempt_{attempt + 1}.py", code)
         try:
-            with timed(logger, "scan"):
+            with timed(logger, "scan", attempt=attempt + 1):
                 scan_code(code)  # fail closed before executing anything
-            with timed(logger, "sandbox_render"):
+            with timed(logger, "sandbox_render", attempt=attempt + 1):
                 proc, media_dir = _run(code, slug, quality, timeout)
-            with timed(logger, "verify"):
+            with timed(logger, "verify", attempt=attempt + 1):
                 mp4 = _verify(proc, media_dir, slug)
             dest = Path("media/videos/freeform")
             dest.mkdir(parents=True, exist_ok=True)

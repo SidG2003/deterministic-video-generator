@@ -58,25 +58,32 @@ class RunLogger:
         self.artifacts: list[str] = []
         self.video: str | None = None
 
-    def record_step(self, name: str, seconds: float, cpu_seconds: float | None = None) -> None:
+    def record_step(self, name: str, seconds: float, cpu_seconds: float | None = None,
+                    attempt: int | None = None) -> None:
         """Record a step's wall time and, when available, its CPU time. `cpu_seconds`
         is user+system CPU (including reaped subprocesses) consumed during the step;
         `cores_used` = cpu_seconds/seconds is the cores-equivalent utilization (>1
         means the step used multiple cores). CPU fields are omitted when unknown
-        (e.g. cold-sim, where the work happened out of process)."""
-        entry: dict = {"name": name, "seconds": round(seconds, 3)}
+        (e.g. cold-sim, where the work happened out of process). `attempt` (1-based),
+        when given, records which repair-loop attempt this step belongs to."""
+        entry: dict = {"name": name}
+        if attempt is not None:
+            entry["attempt"] = attempt
+        entry["seconds"] = round(seconds, 3)
         if cpu_seconds is not None:
             entry["cpu_seconds"] = round(cpu_seconds, 3)
             if seconds > 0:
                 entry["cores_used"] = round(cpu_seconds / seconds, 2)
         self.steps.append(entry)
 
-    def record_tokens(self, name: str, usage, model: str | None = None) -> None:
+    def record_tokens(self, name: str, usage, model: str | None = None,
+                      attempt: int | None = None) -> None:
         """Record token usage for a step (e.g. `llm_call`). `usage` may be an
         Anthropic `Usage` object (from `response.usage`) or a plain dict with
         the same field names; missing/None fields are treated as 0. `model`, if
         given, records which model served this call (kept per-entry since the
-        served model can vary across attempts / cold-sim providers)."""
+        served model can vary across attempts / cold-sim providers). `attempt`
+        (1-based), when given, records which repair-loop attempt produced this call."""
         def _get(key: str) -> int:
             if usage is None:
                 return 0
@@ -84,6 +91,8 @@ class RunLogger:
             return value or 0
 
         entry: dict = {"name": name}
+        if attempt is not None:
+            entry["attempt"] = attempt
         if model:
             entry["model"] = model
         entry.update({field: _get(field) for field in _TOKEN_FIELDS})
@@ -152,10 +161,11 @@ class RunLogger:
 
 
 @contextmanager
-def timed(logger: RunLogger | None, name: str):
+def timed(logger: RunLogger | None, name: str, attempt: int | None = None):
     """Time a block and record its wall + CPU time on `logger` (no-op if logger
     is None). CPU is user+system across this process AND any subprocesses reaped
-    during the block (so Manim/ffmpeg render work counts), via os.times()."""
+    during the block (so Manim/ffmpeg render work counts), via os.times().
+    `attempt` (1-based), when given, tags the step with its repair-loop attempt."""
     start = time.perf_counter()
     cpu_start = os.times()
     try:
@@ -168,4 +178,4 @@ def timed(logger: RunLogger | None, name: str):
                    + (cpu_end.system - cpu_start.system)
                    + (cpu_end.children_user - cpu_start.children_user)
                    + (cpu_end.children_system - cpu_start.children_system))
-            logger.record_step(name, wall, cpu_seconds=max(cpu, 0.0))
+            logger.record_step(name, wall, cpu_seconds=max(cpu, 0.0), attempt=attempt)
