@@ -56,6 +56,21 @@ def prompt_version(tag: str, expected_sha: str, text: str) -> str:
     return tag if prompt_sha(text) == expected_sha else f"{tag}+modified"
 
 
+def _unique_run_dir(base: Path, name: str) -> Path:
+    """Create and return base/name, or base/name_2, _3, ... if taken — runs started
+    in the same second (concurrent evals, fan-out) must never share a directory.
+    mkdir(exist_ok=False) makes the claim atomic across processes."""
+    base.mkdir(parents=True, exist_ok=True)
+    for n in range(1, 1000):
+        path = base / (name if n == 1 else f"{name}_{n}")
+        try:
+            path.mkdir()
+            return path
+        except FileExistsError:
+            continue
+    raise RuntimeError(f"could not create a unique run dir for {name}")
+
+
 class RunLogger:
     def __init__(self, mode: str, topic: str, params: dict | None = None, base: Path = RUNS_DIR):
         self.mode = mode
@@ -63,8 +78,7 @@ class RunLogger:
         self.params = params or {}
         now = datetime.now()
         self.timestamp = now.isoformat(timespec="seconds")
-        self.dir = Path(base) / f"{now:%Y%m%d_%H%M%S}_{mode}_{_slug(topic)}"
-        self.dir.mkdir(parents=True, exist_ok=True)
+        self.dir = _unique_run_dir(Path(base), f"{now:%Y%m%d_%H%M%S}_{mode}_{_slug(topic)}")
         self._start = time.perf_counter()
         self.steps: list[dict] = []
         self.tokens: list[dict] = []
