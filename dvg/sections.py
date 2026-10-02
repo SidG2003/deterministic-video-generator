@@ -69,18 +69,29 @@ def parse_sections(code: str) -> list[str] | None:
 
 def parse_background(code: str) -> str:
     """The colour assigned to self.camera.background_color in construct(), or the
-    default dark background if none is found."""
+    default dark background if none is found. The value may be a string literal or
+    a module-level constant that holds one (fan-out scenes set it from a palette
+    constant like PAL_BG defined in the shared preamble)."""
     try:
         tree = ast.parse(code)
     except SyntaxError:
         return _DEFAULT_BG
+    # module-level NAME = "#..." constants, to resolve an indirect background_color.
+    consts = {t.id: node.value.value
+              for node in tree.body if isinstance(node, ast.Assign)
+              and isinstance(node.value, ast.Constant) and isinstance(node.value.value, str)
+              for t in node.targets if isinstance(t, ast.Name)}
     for node in ast.walk(tree):
-        if (isinstance(node, ast.Assign) and isinstance(node.value, ast.Constant)
-                and isinstance(node.value.value, str)):
-            tgt = node.targets[0] if len(node.targets) == 1 else None
-            if (isinstance(tgt, ast.Attribute) and tgt.attr == "background_color"
-                    and isinstance(tgt.value, ast.Attribute) and tgt.value.attr == "camera"):
-                return node.value.value
+        if not (isinstance(node, ast.Assign) and len(node.targets) == 1):
+            continue
+        tgt = node.targets[0]
+        if (isinstance(tgt, ast.Attribute) and tgt.attr == "background_color"
+                and isinstance(tgt.value, ast.Attribute) and tgt.value.attr == "camera"):
+            val = node.value
+            if isinstance(val, ast.Constant) and isinstance(val.value, str):
+                return val.value
+            if isinstance(val, ast.Name) and val.id in consts:
+                return consts[val.id]
     return _DEFAULT_BG
 
 
