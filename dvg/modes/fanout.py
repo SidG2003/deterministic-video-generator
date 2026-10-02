@@ -24,6 +24,7 @@ from pathlib import Path
 from .. import llm
 from .. import parallel_render
 from .. import sections as sections_mod
+from .. import theme
 from ..fanout_preamble import build_preamble, font_names, palette_names
 from ..freeform import (_FENCE, FreeformError, api_check, build_freeform_prompt,
                         extract_narration, scan_code)
@@ -36,7 +37,7 @@ SCENE_MODEL = "gpt-5.4-mini-deployment-db7e5"
 
 _SCENE_TYPES = {"Scene", "MovingCameraScene", "ThreeDScene"}
 _HEX = re.compile(r"^#[0-9a-fA-F]{6}$")
-_PALETTE_KEYS = ("bg", "primary", "accent", "good", "warn", "muted")
+_PALETTE_KEYS = ("bg", "ink", "primary", "accent", "good", "warn", "muted")
 _FONT_KEYS = ("title", "body", "label")
 
 
@@ -47,18 +48,21 @@ class FanoutError(FreeformError):
 # --- planner prompt (fanout-planner-v1) -------------------------------------
 
 _PLANNER_PROMPT = r"""
-You are the director of a short explainer film. Given a TOPIC and a depth, lay out
-the whole film as a plan that a team of animators will each build one scene from.
-Think first about the major conceptual parts of the topic, then give each its own
-scene so the film is complete and coherent — a clear through-line, not a teaser.
+You are the director of a short explainer film (~30-35 seconds total). Given a TOPIC
+and a depth, lay out the whole film as a plan that a team of animators will each build
+one scene from. Pick the few conceptual parts that matter most and give each its own
+scene — a clear, complete through-line that fits in half a minute, not a teaser and
+not a lecture.
 
 Return ONE strict JSON object, and NOTHING else (no markdown fences, no prose):
 
 {
   "title": "the film's title",
   "style": {
-    "palette": {"bg": "#0b0f1a", "primary": "#7aa2ff", "accent": "#ffd27a",
-                "good": "#6fe3c2", "warn": "#ff6b5e", "muted": "#9fb0d8"},
+    "palette": {"bg": "#f5f3ee", "ink": "#1e232b", "primary": "#3a6ea5",
+                "accent": "#c8862b", "good": "#4f9d69", "warn": "#c25b4e",
+                "muted": "#6b7280"},
+    "font": "Avenir Next",
     "font_sizes": {"title": 44, "body": 30, "label": 24},
     "transition": "fade"
   },
@@ -68,7 +72,7 @@ Return ONE strict JSON object, and NOTHING else (no markdown fences, no prose):
       "goal": "what the viewer should learn in this scene",
       "visual": "the central visual metaphor / what is on screen",
       "on_screen_text": ["short", "phrases"],
-      "narration": "the spoken script for this scene, as flowing sentences",
+      "narration": "the spoken script for this scene (ONE or TWO short sentences)",
       "scene_type": "Scene | MovingCameraScene | ThreeDScene",
       "enters_with": "empty stage",
       "leaves_with": "empty stage",
@@ -78,14 +82,19 @@ Return ONE strict JSON object, and NOTHING else (no markdown fences, no prose):
 }
 
 RULES
-- 3 to 10 scenes. Ids unique (s01, s02, ...), in order.
+- 3 to 6 scenes so the whole film fits ~30-35s. Ids unique (s01, s02, ...), in order.
 - Open with a short title scene; build one idea per scene; end on the takeaway.
-- Every scene starts and ends on an empty stage (the scenes are rendered separately
-  and concatenated — nothing can carry over between them).
-- Use scene_type "ThreeDScene" only when the idea is genuinely spatial (a surface,
-  a field, geometry, an orbit). Mark a scene "heavy" only if it is a real 3D or
-  dense animation — AT MOST 2 scenes may be "heavy".
-- Palette colours must be #rrggbb hex. Keep a cohesive, dark-background palette.
+- Keep narration SHORT — about 20-35 words per scene (one or two sentences). This is
+  what keeps each scene to ~5-8 seconds; long narration makes the film run over.
+- Every scene starts and ends on an empty stage (scenes are rendered separately and
+  concatenated — nothing carries over).
+- Use scene_type "ThreeDScene" only when the idea is genuinely spatial. Mark a scene
+  "heavy" only if it is a real 3D or dense animation — AT MOST 2 scenes may be "heavy".
+- STYLE (do not make it look like default Manim): "bg" must be LIGHT (white / off-white
+  / soft light tint), "ink" must be a DARK near-black for text; the other palette
+  colours must be MUTED and editorial (no neon/electric colours). All colours #rrggbb.
+  "font" is one real typeface from: Avenir Next, Helvetica Neue, Optima, Gill Sans,
+  Futura, Georgia, Palatino, Baskerville.
 - Keep on_screen_text short; the narration carries the explanation.
 
 Output ONLY the JSON object.
@@ -96,8 +105,8 @@ def build_planner_prompt() -> str:
     return _PLANNER_PROMPT.strip()
 
 
-PLANNER_PROMPT_VERSION = "fanout-planner-v1"
-PLANNER_PROMPT_SHA = "3206050828ca"
+PLANNER_PROMPT_VERSION = "fanout-planner-v2"
+PLANNER_PROMPT_SHA = "fc8f9b3aef74"
 
 
 def planner_prompt_version() -> str:
@@ -108,8 +117,8 @@ def planner_prompt_version() -> str:
 
 _SCENE_TAIL = """\
 THIS IS ONE SCENE OF A LARGER FILM — write exactly one self-contained section.
-- The imports, the colour palette ({palette}) and the font sizes ({fonts}) are
-  ALREADY defined ABOVE your code. USE them; do NOT add imports or redefine them.
+- The imports, the palette ({palette}) and the font constants ({fonts}) are ALREADY
+  defined ABOVE your code. USE them; do NOT add imports or redefine them.
 - Output EXACTLY this shape and nothing else — no imports, no palette constants:
       NARRATION = ["the spoken line for THIS scene"]
       SECTIONS = ["main"]
@@ -122,12 +131,18 @@ THIS IS ONE SCENE OF A LARGER FILM — write exactly one self-contained section.
               ...  # your animation
   where SCENE_TYPE is the scene_type from the spec (Scene / MovingCameraScene /
   ThreeDScene).
+- THEME (already decided for the whole film — just use it): the background is light
+  (PAL_BG). Give EVERY Text a font: Text("...", font=FONT_FAMILY, color=PAL_INK) for
+  normal text; use PAL_PRIMARY / PAL_ACCENT / PAL_GOOD / PAL_WARN / PAL_MUTED for
+  accents. Size text with FONT_TITLE / FONT_BODY / FONT_LABEL. Never use a light text
+  colour on the light background. Reveal text with FadeIn(...) — NEVER Write(...).
 - The `main` section MUST start on an empty stage and end with NO visible mobjects
   (finish with self.play(*[FadeOut(m) for m in self.mobjects])).
 - Do NOT assign to self.<attr> inside main (no shared state), and do NOT call
   random.seed(...) / np.random.seed(...) — seeding is handled for you.
-- Follow all the LAYOUT & LEGIBILITY and API SAFETY rules above. Use PAL_* for
-  colours and FONT_TITLE / FONT_BODY / FONT_LABEL for text sizes.
+- Keep this scene TIGHT, to the time budget given with the scene: a few focused plays
+  and short holds. Doing less per scene also keeps labels from colliding. Follow all
+  the LAYOUT & LEGIBILITY and API SAFETY rules above.
 
 OUTPUT
 - Return ONLY the Python for NARRATION, SECTIONS and class Generated. No imports,
@@ -144,8 +159,8 @@ def build_scene_prompt() -> str:
     return head + "\n\n" + tail
 
 
-SCENE_PROMPT_VERSION = "fanout-scene-v1"
-SCENE_PROMPT_SHA = "e26981df41d1"
+SCENE_PROMPT_VERSION = "fanout-scene-v2"
+SCENE_PROMPT_SHA = "991e4ed082c5"
 
 
 def scene_prompt_version() -> str:
@@ -174,6 +189,16 @@ def validate_plan(data) -> list[str]:
                 v = palette.get(k)
                 if not isinstance(v, str) or not _HEX.match(v):
                     problems.append(f"'style.palette.{k}' must be a #rrggbb hex colour")
+            bg = palette.get("bg")
+            if isinstance(bg, str) and _HEX.match(bg) and not theme.is_light(bg):
+                problems.append("'style.palette.bg' must be a LIGHT colour (white / off-white / "
+                                "light tint) — not a dark Manim-style background")
+            ink = palette.get("ink")
+            if isinstance(ink, str) and _HEX.match(ink) and not theme.is_dark(ink):
+                problems.append("'style.palette.ink' must be a DARK near-black (it is the text "
+                                "colour on the light background)")
+        if not isinstance(style.get("font"), str) or not style.get("font", "").strip():
+            problems.append("'style.font' must be a typeface name (e.g. 'Avenir Next')")
         fonts = style.get("font_sizes")
         if not isinstance(fonts, dict):
             problems.append("'style.font_sizes' must be an object")
@@ -185,8 +210,8 @@ def validate_plan(data) -> list[str]:
     scenes = data.get("scenes")
     if not isinstance(scenes, list):
         return problems + ["'scenes' must be a list"]
-    if not (3 <= len(scenes) <= 10):
-        problems.append(f"'scenes' must have 3-10 entries (got {len(scenes)})")
+    if not (3 <= len(scenes) <= 6):
+        problems.append(f"'scenes' must have 3-6 entries (got {len(scenes)})")
     ids, heavy = set(), 0
     for i, s in enumerate(scenes):
         where = f"scenes[{i}]"
@@ -283,6 +308,10 @@ def build_scene_user_message(plan: dict, preamble: str, idx: int) -> str:
                      f"{scenes[idx - 1].get('leaves_with', 'empty stage')}")
     if idx < len(scenes) - 1:
         parts.append(f"NEXT SCENE ({scenes[idx + 1]['id']}) begins: {scenes[idx + 1].get('goal', '')}")
+    budget = max(4, round(sum(theme.TARGET_SECONDS) / 2 / len(scenes)))
+    parts.append(f"TIME BUDGET for this scene: ~{budget} seconds (the film targets "
+                 f"{theme.TARGET_SECONDS[0]}-{theme.TARGET_SECONDS[1]}s across {len(scenes)} scenes). "
+                 "Keep it tight.")
     parts.append("YOUR SCENE — write this one (scene_type = "
                  f"{spec['scene_type']}):\n{json.dumps(spec, indent=2, ensure_ascii=False)}")
     return "\n\n".join(parts)

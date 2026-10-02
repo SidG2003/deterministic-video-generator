@@ -19,8 +19,10 @@ def _good_plan():
     return {
         "title": "How X Works",
         "style": {
-            "palette": {"bg": "#0b0f1a", "primary": "#7aa2ff", "accent": "#ffd27a",
-                        "good": "#6fe3c2", "warn": "#ff6b5e", "muted": "#9fb0d8"},
+            "palette": {"bg": "#f5f3ee", "ink": "#1e232b", "primary": "#3a6ea5",
+                        "accent": "#c8862b", "good": "#4f9d69", "warn": "#c25b4e",
+                        "muted": "#6b7280"},
+            "font": "Avenir Next",
             "font_sizes": {"title": 44, "body": 30, "label": 24},
             "transition": "fade",
         },
@@ -45,7 +47,7 @@ def test_valid_plan_passes():
 def test_too_few_scenes():
     p = _good_plan()
     p["scenes"] = p["scenes"][:2]
-    assert any("3-10" in m for m in fanout.validate_plan(p))
+    assert any("3-6" in m for m in fanout.validate_plan(p))
 
 
 def test_duplicate_scene_ids():
@@ -58,6 +60,18 @@ def test_bad_hex_colour():
     p = _good_plan()
     p["style"]["palette"]["bg"] = "navy"
     assert any("hex" in m for m in fanout.validate_plan(p))
+
+
+def test_dark_background_rejected():
+    p = _good_plan()
+    p["style"]["palette"]["bg"] = "#0b0f1a"  # the old Manim-dark default
+    assert any("LIGHT" in m for m in fanout.validate_plan(p))
+
+
+def test_missing_font_rejected():
+    p = _good_plan()
+    del p["style"]["font"]
+    assert any("font" in m for m in fanout.validate_plan(p))
 
 
 def test_too_many_heavy():

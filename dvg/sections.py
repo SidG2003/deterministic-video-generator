@@ -118,7 +118,7 @@ SECTION CONTRACT (your code is split by section and rendered in parallel — fol
   the section methods of the scene.
 - Define exactly ONE class `Generated` (Scene, MovingCameraScene, or ThreeDScene).
 - `construct()` must contain ONLY these two statements, nothing else:
-      self.camera.background_color = "#0b0f1a"
+      self.camera.background_color = "#f5f3ee"  # a LIGHT background (see THEME & STYLE)
       for name in SECTIONS:
           getattr(self, name)()
 - Put each section's animation in its own method named in SECTIONS. Each section:

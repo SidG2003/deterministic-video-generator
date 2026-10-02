@@ -46,7 +46,7 @@ HEAVY SCENES (your sections are rendered in parallel, and a heavy one is time-sl
   section so it can be sliced without dragging the lighter sections."""
 
 _EXAMPLE = '''\
-# Structure reference — follows the section contract (invent richer visuals for the real topic):
+# Structure reference — themed, follows the section contract (invent richer visuals):
 from manim import *
 import numpy as np
 
@@ -58,39 +58,45 @@ NARRATION = [
 
 SECTIONS = ["title", "mechanism", "closing"]
 
+FONT = "Avenir Next"
+INK = "#1e232b"
+PRIMARY = "#3a6ea5"
+ACCENT = "#c8862b"
+MUTED = "#6b7280"
+
 
 class Generated(Scene):
     def construct(self):
-        self.camera.background_color = "#0b0f1a"
+        self.camera.background_color = "#f5f3ee"  # light, not the Manim default
         for name in SECTIONS:
             getattr(self, name)()
 
     def title(self):
-        title = Text("The Idea", font_size=48, weight=BOLD)
-        subtitle = Text("one clear sentence about it", font_size=28, color="#9fb0d8")
+        title = Text("The Idea", font=FONT, font_size=48, color=INK, weight=BOLD)
+        subtitle = Text("one clear sentence about it", font=FONT, font_size=28, color=MUTED)
         header = VGroup(title, subtitle).arrange(DOWN, buff=0.3)
-        self.play(FadeIn(header, shift=UP * 0.2), run_time=1.0)
-        self.wait(0.8)
-        self.play(*[FadeOut(m) for m in self.mobjects], run_time=0.5)
+        self.play(FadeIn(header, shift=UP * 0.2), run_time=0.8)  # fade, never Write
+        self.wait(0.6)
+        self.play(*[FadeOut(m) for m in self.mobjects], run_time=0.4)
 
     def mechanism(self):
-        heading = Text("How it works", font_size=40).to_edge(UP, buff=0.5)
-        box_a = RoundedRectangle(width=3, height=1.6, corner_radius=0.2, color="#7aa2ff")
-        box_b = box_a.copy().set_color("#6fe3c2")
+        heading = Text("How it works", font=FONT, font_size=40, color=INK).to_edge(UP, buff=0.5)
+        box_a = RoundedRectangle(width=3, height=1.6, corner_radius=0.2, color=PRIMARY)
+        box_b = box_a.copy().set_color(ACCENT)
         boxes = VGroup(box_a, box_b).arrange(RIGHT, buff=2.0)
-        arrow = Arrow(box_a.get_right(), box_b.get_left(), buff=0.15)
-        label_a = Text("input", font_size=26).next_to(box_a, DOWN, buff=0.3)
-        label_b = Text("output", font_size=26).next_to(box_b, DOWN, buff=0.3)
-        self.play(FadeIn(heading), Create(boxes), run_time=1.0)
-        self.play(GrowArrow(arrow), FadeIn(label_a), FadeIn(label_b), run_time=0.8)
-        self.wait(0.8)
-        self.play(*[FadeOut(m) for m in self.mobjects], run_time=0.5)
+        arrow = Arrow(box_a.get_right(), box_b.get_left(), buff=0.15, color=MUTED)
+        label_a = Text("input", font=FONT, font_size=26, color=INK).next_to(box_a, DOWN, buff=0.3)
+        label_b = Text("output", font=FONT, font_size=26, color=INK).next_to(box_b, DOWN, buff=0.3)
+        self.play(FadeIn(heading), Create(boxes), run_time=0.8)
+        self.play(GrowArrow(arrow), FadeIn(label_a), FadeIn(label_b), run_time=0.6)
+        self.wait(0.6)
+        self.play(*[FadeOut(m) for m in self.mobjects], run_time=0.4)
 
     def closing(self):
-        takeaway = Text("The takeaway, in a few words.", font_size=34, color="#ffd27a")
-        self.play(Write(takeaway), run_time=1.0)
-        self.wait(0.8)
-        self.play(*[FadeOut(m) for m in self.mobjects], run_time=0.5)'''
+        takeaway = Text("The takeaway, in a few words.", font=FONT, font_size=34, color=ACCENT)
+        self.play(FadeIn(takeaway, shift=UP * 0.2), run_time=0.8)
+        self.wait(0.6)
+        self.play(*[FadeOut(m) for m in self.mobjects], run_time=0.4)'''
 
 _FINAL_CHECK = """\
 FINAL CHECK — before answering, walk through each section method: does it start
@@ -123,8 +129,8 @@ def build_sectioned_prompt() -> str:
     ])
 
 
-SECTIONED_PROMPT_VERSION = "sectioned-v1"
-SECTIONED_PROMPT_SHA = "c7fee6485b1a"
+SECTIONED_PROMPT_VERSION = "sectioned-v2"
+SECTIONED_PROMPT_SHA = "fc51bd5bbddb"
 
 
 def sectioned_prompt_version() -> str:

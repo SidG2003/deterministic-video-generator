@@ -92,8 +92,9 @@ STRUCTURE, COVERAGE & PACING
   own section, so the viewer understands the whole idea, not just a teaser.
 - Open with a title moment; build one idea per section with a clear visual metaphor.
   Keep on-screen text short and purposeful — the narration carries the explanation.
-- PACING: no target duration; length follows content. Holds/waits ~0.5-1.5s, snappy
-  run_times, no dead time.
+- PACING: holds/waits short (~0.3-0.8s), snappy run_times, no dead time.
+
+<<LENGTH_RULE>>
 
 LAYOUT & LEGIBILITY — ZERO UNINTENDED OVERLAP (as important as beauty)
 - SECTION LIFECYCLE: every section starts on a clean stage. At the end of a section,
@@ -124,6 +125,8 @@ LAYOUT & LEGIBILITY — ZERO UNINTENDED OVERLAP (as important as beauty)
 - Intersections WITHIN a single diagram/surface/field are fine; separate labels and
   objects must never collide.
 
+<<STYLE_RULES>>
+
 RENDER COST (keeps renders fast; the look stays the same)
 - Don't rebuild large objects every frame with always_redraw (Surfaces, big
   VGroups); animate them with .animate or an updater that moves them.
@@ -150,9 +153,10 @@ HARD REQUIREMENTS (all must hold)
 - No os, sys, subprocess, open(), eval, exec, files, or network in any form.
 - Follow LAYOUT & LEGIBILITY: section lifecycle, replace-don't-stack, bands, safe
   area, sizes, density.
-- Dark background by default: self.camera.background_color = "#0b0f1a".
+- Light background (see THEME & STYLE): e.g. self.camera.background_color = "#f5f3ee";
+  never the dark Manim default.
 - If you use randomness, seed it: random.seed(0).
-- Math: MathTex/Tex (LaTeX installed). Plain text: Text.
+- Math: MathTex/Tex (LaTeX installed). Plain text: Text with an explicit font=.
 
 NARRATION (required)
 - Immediately after the imports, define a module-level list literal named NARRATION:
@@ -168,13 +172,15 @@ NARRATION (required)
 
 FINAL CHECK — before answering, walk through the code section by section: what is
 on screen after each self.play(...)? Is any text touching other text or the frame
-edge? Is anything left over from the previous section? Is there any class, method,
-or argument you are not sure exists? Fix these first.
+edge? Is anything left over from the previous section? Is the background light and
+every Text given a font=? Did you reveal text with FadeIn (never Write)? Are the
+colours muted (no neon) and readable on the light background? Is there any class,
+method, or argument you are not sure exists? Fix these first.
 
 OUTPUT
 - Return ONLY the Python code. No markdown fences, no commentary, nothing else.
 
-# Structure reference — shows the layout pattern (invent fresh, richer visuals for the real topic):
+# Structure reference — shows the themed layout pattern (invent fresh, richer visuals):
 from manim import *
 
 NARRATION = [
@@ -182,43 +188,51 @@ NARRATION = [
     "The next line, explaining what the animation is showing.",
 ]
 
+FONT = "Avenir Next"
+INK = "#1e232b"
+PRIMARY = "#3a6ea5"
+ACCENT = "#c8862b"
+
 class Generated(Scene):
     def construct(self):
-        self.camera.background_color = "#0b0f1a"
+        self.camera.background_color = "#f5f3ee"  # light, not the Manim default
 
-        # --- section 1: title moment
-        title = Text("The Idea", font_size=48, weight=BOLD)
-        subtitle = Text("one clear sentence about it", font_size=28, color="#9fb0d8")
+        # --- section 1: title moment (text FADES in, never Write)
+        title = Text("The Idea", font="Avenir Next", font_size=48, color=INK, weight=BOLD)
+        subtitle = Text("one clear sentence about it", font="Avenir Next", font_size=28, color="#6b7280")
         header = VGroup(title, subtitle).arrange(DOWN, buff=0.3)
-        self.play(FadeIn(header, shift=UP * 0.2), run_time=1.0)
-        self.wait(0.8)
-        self.play(FadeOut(header), run_time=0.6)  # clean stage for the next section
+        self.play(FadeIn(header, shift=UP * 0.2), run_time=0.8)
+        self.wait(0.6)
+        self.play(FadeOut(header), run_time=0.4)  # clean stage for the next section
 
         # --- section 2: one visual, labels placed relative to it
-        heading = Text("How it works", font_size=40).to_edge(UP, buff=0.5)
-        box_a = RoundedRectangle(width=3, height=1.6, corner_radius=0.2, color="#7aa2ff")
-        box_b = box_a.copy().set_color("#6fe3c2")
+        heading = Text("How it works", font="Avenir Next", font_size=40, color=INK).to_edge(UP, buff=0.5)
+        box_a = RoundedRectangle(width=3, height=1.6, corner_radius=0.2, color=PRIMARY)
+        box_b = box_a.copy().set_color(ACCENT)
         boxes = VGroup(box_a, box_b).arrange(RIGHT, buff=2.0)
-        arrow = Arrow(box_a.get_right(), box_b.get_left(), buff=0.15)
-        label_a = Text("input", font_size=26).next_to(box_a, DOWN, buff=0.3)
-        label_b = Text("output", font_size=26).next_to(box_b, DOWN, buff=0.3)
-        self.play(FadeIn(heading), Create(boxes), run_time=1.0)
-        self.play(GrowArrow(arrow), FadeIn(label_a), FadeIn(label_b), run_time=0.8)
-        new_label = Text("result", font_size=26).move_to(label_b)
-        self.play(ReplacementTransform(label_b, new_label), run_time=0.6)  # replace, don't stack
-        self.wait(0.8)
-        self.play(*[FadeOut(m) for m in self.mobjects], run_time=0.6)  # end of section
+        arrow = Arrow(box_a.get_right(), box_b.get_left(), buff=0.15, color="#6b7280")
+        label_a = Text("input", font="Avenir Next", font_size=26, color=INK).next_to(box_a, DOWN, buff=0.3)
+        label_b = Text("output", font="Avenir Next", font_size=26, color=INK).next_to(box_b, DOWN, buff=0.3)
+        self.play(FadeIn(heading), Create(boxes), run_time=0.8)  # Create is fine for shapes
+        self.play(GrowArrow(arrow), FadeIn(label_a), FadeIn(label_b), run_time=0.6)
+        new_label = Text("result", font="Avenir Next", font_size=26, color=INK).move_to(label_b)
+        self.play(ReplacementTransform(label_b, new_label), run_time=0.5)  # replace, don't stack
+        self.wait(0.6)
+        self.play(*[FadeOut(m) for m in self.mobjects], run_time=0.4)  # end of section
 """
 
 
 def build_freeform_prompt() -> str:
-    return _PROMPT.strip()
+    from . import theme
+    return (_PROMPT.strip()
+            .replace("<<LENGTH_RULE>>", theme.LENGTH_RULE)
+            .replace("<<STYLE_RULES>>", theme.STYLE_RULES))
 
 
 # Must match the newest "freeform" entry in docs/prompt-log.md. When _PROMPT changes,
 # log the new version (with its intent) first, then bump both the tag and the sha.
-FREEFORM_PROMPT_VERSION = "freeform-v3"
-FREEFORM_PROMPT_SHA = "418a8e636f5a"
+FREEFORM_PROMPT_VERSION = "freeform-v4"
+FREEFORM_PROMPT_SHA = "b5277c427607"
 
 
 def freeform_prompt_version() -> str:
