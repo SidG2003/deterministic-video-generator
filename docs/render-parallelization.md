@@ -127,6 +127,8 @@ Earlier animations are skipped, and three patches make that skip exact:
   activity can't inflate it, whereas a live psutil sampler would.
 
 ## Next steps
+- **Execution plan:** [plans/parallel-freeform.md](plans/parallel-freeform.md)
+  (foundation + sectioned mode A + fan-out mode B + evaluation).
 - Build a parallel render engine (isolated dirs, per-section seeding, exact
   time-slicing, lossless concat, frame-hash regression test) as an **opt-in**
   path; the default sequential render stays unchanged.
