@@ -175,9 +175,14 @@ def main() -> None:
     parser.add_argument("--topic-id",
                         help="use a fixed sample prompt from eval/topics.toml by number, id or name "
                              "(e.g. 5, t05, rocket-orbit); list them with: python -m dvg.topics")
-    parser.add_argument("--mode", choices=["constrained", "freeform"], default="constrained",
+    parser.add_argument("--mode",
+                        choices=["constrained", "freeform", "freeform-sectioned", "freeform-fanout"],
+                        default="constrained",
                         help="constrained = safe IR vocabulary (default); "
-                             "freeform = LLM writes full Manim code, sandboxed")
+                             "freeform = LLM writes full Manim code, sandboxed; "
+                             "freeform-sectioned = one call following the section contract, "
+                             "rendered section-parallel; "
+                             "freeform-fanout = planner + per-scene calls, rendered in parallel")
     parser.add_argument("--style", default="midnight", choices=["midnight", "paper"])
     parser.add_argument("--depth", default=None, choices=["overview", "standard", "deep"],
                         help="breadth of conceptual coverage (length follows content, not a target); "
@@ -187,11 +192,34 @@ def main() -> None:
     parser.add_argument("--out", help="path to write the IR JSON (default: examples/generated/<slug>.json)")
     parser.add_argument("--render", action="store_true", help="render the video after generating (constrained mode)")
     parser.add_argument("--quality", choices=["l", "m", "h", "k"], default="l")
+    # New-mode rendering + fan-out flags (ignored by constrained/freeform).
+    parser.add_argument("--render-strategy", choices=["sequential", "parallel"], default="sequential",
+                        help="freeform-sectioned/-fanout: render units one at a time or in parallel "
+                             "(default: sequential)")
+    parser.add_argument("--workers", type=int, default=None,
+                        help="freeform-sectioned/-fanout: parallel render pool size "
+                             "(default: cpu_count - 1)")
+    parser.add_argument("--planner-model", default=None,
+                        help="freeform-fanout: model for the planner call (default: a strong model)")
+    parser.add_argument("--scene-model", default=None,
+                        help="freeform-fanout: model for each scene call (default: --model)")
+    parser.add_argument("--escalate-model", default=None,
+                        help="freeform-fanout: model to retry a scene that exhausts its repairs")
+    parser.add_argument("--max-concurrency", type=int, default=4,
+                        help="freeform-fanout: max concurrent scene LLM calls (default: 4)")
     args = parser.parse_args()
     _resolve_topic(parser, args)
 
     if args.mode == "freeform":
         _run_freeform(args)
+        return
+    if args.mode == "freeform-sectioned":
+        from .modes.sectioned import run as run_sectioned
+        run_sectioned(args)
+        return
+    if args.mode == "freeform-fanout":
+        from .modes.fanout import run as run_fanout
+        run_fanout(args)
         return
 
     print(f"Generating IR for: {args.topic!r} …")

@@ -30,7 +30,7 @@ from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
 
-RUNS_DIR = Path("runs")
+RUNS_DIR = Path(os.environ.get("DVG_RUNS_DIR", "runs"))
 
 _TOKEN_FIELDS = (
     "input_tokens",
@@ -89,12 +89,21 @@ class RunLogger:
         self.system_prompt_sha256: str | None = None
         self.overlaps: dict | None = None
         self.api_checks: list[dict] = []
+        self.render_units: list[dict] | None = None
+        self.render_strategy: str | None = None
+        self.workers: int | None = None
+        self.render_critical_path_seconds: float | None = None
 
-    def record_api_check(self, findings: list[dict], version: str, attempt: int | None = None) -> None:
-        """Keep the static API checker's findings (dvg/kb/check.py) for one attempt."""
+    def record_api_check(self, findings: list[dict], version: str, attempt: int | None = None,
+                         scene: int | None = None) -> None:
+        """Keep the static API checker's findings (dvg/kb/check.py) for one attempt.
+        `scene` (1-based), when given, records which scene/section this check belongs
+        to (fan-out and sectioned modes); omitted when None so freeform output is
+        unchanged."""
         errors = [f for f in findings if f["severity"] == "error"]
         self.api_checks.append({
             **({"attempt": attempt} if attempt is not None else {}),
+            **({"scene": scene} if scene is not None else {}),
             "checker": version,
             "errors": len(errors),
             "warnings": len(findings) - len(errors),
@@ -107,6 +116,22 @@ class RunLogger:
         if report is None:
             return
         self.overlaps = {**({"attempt": attempt} if attempt is not None else {}), **report}
+
+    def record_render_units(self, units: list[dict], strategy: str | None = None,
+                            workers: int | None = None,
+                            critical_path_seconds: float | None = None) -> None:
+        """Keep the parallel render engine's per-unit accounting for meta.json.
+        Each unit is {unit, kind: "scene"|"section"|"slice", section, anim_range,
+        frames, seconds, cpu_seconds, worker}. `strategy` (sequential|parallel),
+        `workers` (pool size), and `critical_path_seconds` (the longest-chain wall
+        time, i.e. the floor set by the slowest unit) describe the whole render."""
+        self.render_units = units
+        if strategy is not None:
+            self.render_strategy = strategy
+        if workers is not None:
+            self.workers = workers
+        if critical_path_seconds is not None:
+            self.render_critical_path_seconds = round(critical_path_seconds, 3)
 
     def record_prompts(self, system_prompt: str | None, user_prompt: str,
                        system_prompt_version: str | None = None) -> None:
@@ -121,16 +146,20 @@ class RunLogger:
         self.system_prompt_version = system_prompt_version
 
     def record_step(self, name: str, seconds: float, cpu_seconds: float | None = None,
-                    attempt: int | None = None) -> None:
+                    attempt: int | None = None, scene: int | None = None) -> None:
         """Record a step's wall time and, when available, its CPU time. `cpu_seconds`
         is user+system CPU (including reaped subprocesses) consumed during the step;
         `cores_used` = cpu_seconds/seconds is the cores-equivalent utilization (>1
         means the step used multiple cores). CPU fields are omitted when unknown
         (e.g. cold-sim, where the work happened out of process). `attempt` (1-based),
-        when given, records which repair-loop attempt this step belongs to."""
+        when given, records which repair-loop attempt this step belongs to. `scene`
+        (1-based), when given, records which scene/section it belongs to (fan-out /
+        sectioned modes); omitted when None so existing output is unchanged."""
         entry: dict = {"name": name}
         if attempt is not None:
             entry["attempt"] = attempt
+        if scene is not None:
+            entry["scene"] = scene
         entry["seconds"] = round(seconds, 3)
         if cpu_seconds is not None:
             entry["cpu_seconds"] = round(cpu_seconds, 3)
@@ -139,7 +168,7 @@ class RunLogger:
         self.steps.append(entry)
 
     def record_tokens(self, name: str, usage, model: str | None = None,
-                      attempt: int | None = None) -> None:
+                      attempt: int | None = None, scene: int | None = None) -> None:
         """Record token usage for a step (e.g. `llm_call`). `usage` may be an
         Anthropic `Usage` object (from `response.usage`) or a plain dict with
         the same field names; missing/None fields are treated as 0. `model`, if
@@ -155,6 +184,8 @@ class RunLogger:
         entry: dict = {"name": name}
         if attempt is not None:
             entry["attempt"] = attempt
+        if scene is not None:
+            entry["scene"] = scene
         if model:
             entry["model"] = model
         entry.update({field: _get(field) for field in _TOKEN_FIELDS})
@@ -221,6 +252,11 @@ class RunLogger:
             "video": self.video,
             "error": error,
         }
+        if self.render_units is not None:
+            meta["render_units"] = self.render_units
+            meta["render_strategy"] = self.render_strategy
+            meta["workers"] = self.workers
+            meta["render_critical_path_seconds"] = self.render_critical_path_seconds
         if extra:
             meta.update(extra)
         (self.dir / "meta.json").write_text(json.dumps(meta, indent=2) + "\n")
@@ -228,11 +264,13 @@ class RunLogger:
 
 
 @contextmanager
-def timed(logger: RunLogger | None, name: str, attempt: int | None = None):
+def timed(logger: RunLogger | None, name: str, attempt: int | None = None,
+          scene: int | None = None):
     """Time a block and record its wall + CPU time on `logger` (no-op if logger
     is None). CPU is user+system across this process AND any subprocesses reaped
     during the block (so Manim/ffmpeg render work counts), via os.times().
-    `attempt` (1-based), when given, tags the step with its repair-loop attempt."""
+    `attempt` (1-based), when given, tags the step with its repair-loop attempt;
+    `scene` (1-based) tags it with its scene/section (fan-out / sectioned modes)."""
     start = time.perf_counter()
     cpu_start = os.times()
     try:
@@ -245,4 +283,5 @@ def timed(logger: RunLogger | None, name: str, attempt: int | None = None):
                    + (cpu_end.system - cpu_start.system)
                    + (cpu_end.children_user - cpu_start.children_user)
                    + (cpu_end.children_system - cpu_start.children_system))
-            logger.record_step(name, wall, cpu_seconds=max(cpu, 0.0), attempt=attempt)
+            logger.record_step(name, wall, cpu_seconds=max(cpu, 0.0), attempt=attempt,
+                               scene=scene)
