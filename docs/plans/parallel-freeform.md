@@ -99,16 +99,23 @@ each with an id, a short name, the prompt text, a depth, and what it stresses.
 ## Branches and order
 1. **Tag** current `main` as `baseline/sequential` (restore point). Push the tag.
 2. **`feat/parallel-render`** — the shared foundation (step 1). Merge to `main`.
-3. From the updated `main`, two branches that can proceed in parallel:
+3. From the updated `main`, **two separate branches** (A and B are alternatives to
+   compare, so each lives on its own branch — never the same branch):
    - **`feat/freeform-sectioned`** (step 2, approach A)
    - **`feat/freeform-fanout`** (step 3, approach B)
-   Use `git worktree add ../dvg-sectioned feat/freeform-sectioned` (and
-   `../dvg-fanout`) to work on both at once; copy `.env`, reuse the main `.venv`,
-   and set `DVG_RUNS_DIR` to one shared absolute path so all runs land together.
 4. Merge A; rebase B onto `main`; merge B. Because step 1 creates the stub modules
    and the CLI dispatch, A and B only edit their own files. Expected conflicts:
    appends to `README.md` / `docs/prompt-log.md` only.
 5. **Comparison** (step 4) on `main` with all modes merged.
+
+**Order depends on who executes it.** A single agent should go strictly in sequence
+— foundation → merge → A → merge → B — because B rebases onto `main` after A merges.
+Two agents (or a human) can build A and B at the same time using separate working
+directories: `git worktree add ../dvg-sectioned feat/freeform-sectioned` and
+`git worktree add ../dvg-fanout feat/freeform-fanout`; copy `.env` into each
+(gitignored), reuse the main `.venv`, and set `DVG_RUNS_DIR` to one shared absolute
+path so all runs land together. Either way the two approaches stay on separate
+branches and merge independently.
 
 ---
 
