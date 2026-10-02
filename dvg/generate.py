@@ -138,6 +138,8 @@ def _run_freeform(args) -> None:
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(code)
     logger.save_video(video)
+    from .narrate import apply_if_requested
+    apply_if_requested(args, logger)
     logger.finish(True)
     print(f"Wrote scene code: {out}")
     print(f"Rendered: {video}")
@@ -207,6 +209,11 @@ def main() -> None:
                         help="freeform-fanout: model to retry a scene that exhausts its repairs")
     parser.add_argument("--max-concurrency", type=int, default=4,
                         help="freeform-fanout: max concurrent scene LLM calls (default: 4)")
+    parser.add_argument("--narrate", action="store_true",
+                        help="after rendering, synthesize the NARRATION as a voice track and "
+                             "mux it over the video (writes video_narrated.mp4; macOS `say`)")
+    parser.add_argument("--voice", default=None,
+                        help="voice name for --narrate (macOS `say -v`); default: system voice")
     args = parser.parse_args()
     _resolve_topic(parser, args)
 

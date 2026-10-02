@@ -502,6 +502,8 @@ def run(args) -> None:
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(code)
     logger.save_video(video)
+    from ..narrate import apply_if_requested
+    apply_if_requested(args, logger)
     logger.finish(True, extra={"scene_prompt_version": scene_prompt_version()})
     print(f"Wrote concatenated scenes: {out}")
     print(f"Rendered: {video}")
