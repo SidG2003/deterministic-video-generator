@@ -6,8 +6,9 @@ both need to send a system-prompt + message-history chat request and get back
 (text, token usage) in one uniform shape, regardless of which vendor sits
 behind `model`. This module is the single seam that knows about the specific
 SDKs, so both callers stay vendor-agnostic. The provider is inferred purely
-from the model id -- "claude-*" -> Anthropic, "gpt-*"/"o1*"/"o3*"/"o4*" ->
-OpenAI (or an OpenAI-compatible Azure OpenAI deployment) -- so there's no
+from the model id -- "claude-*" -> Anthropic, "anthropic.*"/"<region>.anthropic.*"
+-> AWS Bedrock (Anthropic models), "gpt-*"/"o1*"/"o3*"/"o4*" -> OpenAI (or an
+OpenAI-compatible Azure OpenAI deployment) -- so there's no
 separate --provider flag to keep in sync.
 
 Token usage is always normalized to Anthropic's field names (input_tokens,
@@ -19,6 +20,10 @@ there; cache_read_input_tokens comes from usage.input_tokens_details.cached_toke
 
 Needs, in the environment (or a .env file in the working directory):
   - ANTHROPIC_API_KEY, for "claude-*" models; or
+  - AWS_BEARER_TOKEN_BEDROCK (a Bedrock API key; alias AWS_BEDROCK_API_KEY or
+    BEDROCK_API_KEY) and optionally AWS_REGION (default us-east-1), for Bedrock
+    model ids such as "anthropic.claude-opus-4-5" or an inference profile like
+    "us.anthropic.claude-opus-4-6-v1"; or
   - OPENAI_API_KEY, for "gpt-*"/"o*" models against the public OpenAI API; or
   - Azure OpenAI deployments for "gpt-*"/"o*" models, configured as one or more
     numbered blocks AZURE_OPENAI_<N>_{ENDPOINT,DEPLOYMENT,API_KEY} (plus an
@@ -31,14 +36,20 @@ Needs, in the environment (or a .env file in the working directory):
 
 from __future__ import annotations
 
+import json
 import os
+import urllib.error
+import urllib.request
 
 from dotenv import load_dotenv
 
 load_dotenv()  # populate os.environ from a .env file, before any client reads it
 
 _OPENAI_PREFIXES = ("gpt", "o1", "o3", "o4")
+_BEDROCK_PREFIXES = ("anthropic.", "us.anthropic.", "eu.anthropic.", "apac.anthropic.",
+                     "global.anthropic.")
 _AZURE_MAX_BLOCKS = 20  # how many AZURE_OPENAI_<N>_ blocks we scan for
+_BEDROCK_TIMEOUT = 600  # non-streaming invoke of a long generation can be slow
 
 
 def provider_for(model: str) -> str:
@@ -46,11 +57,14 @@ def provider_for(model: str) -> str:
     m = model.lower()
     if m.startswith("claude"):
         return "anthropic"
+    if m.startswith(_BEDROCK_PREFIXES):
+        return "bedrock"
     if m.startswith(_OPENAI_PREFIXES):
         return "openai"
     raise ValueError(
         f"cannot infer a provider for model {model!r}; expected a 'claude-*' "
-        "(Anthropic) or 'gpt-*'/'o*' (OpenAI/Azure OpenAI) model id"
+        "(Anthropic), 'anthropic.*'/'us.anthropic.*' (Bedrock) or 'gpt-*'/'o*' "
+        "(OpenAI/Azure OpenAI) model id"
     )
 
 
@@ -76,6 +90,41 @@ def _azure_deployments() -> dict[str, dict]:
     return out
 
 
+class BedrockClient:
+    """Minimal Bedrock InvokeModel client authenticated with a Bedrock API key
+    (bearer token). Plain HTTPS -- no boto3, so there's no AWS credential-chain
+    ambiguity; this is the same request shape project-kinetic uses."""
+
+    def __init__(self, api_key: str, region: str):
+        self.api_key = api_key
+        self.endpoint = (
+            os.environ.get("AWS_BEDROCK_ENDPOINT_URL")
+            or f"https://bedrock-runtime.{region}.amazonaws.com"
+        ).rstrip("/")
+
+    def invoke(self, model: str, body: dict) -> dict:
+        req = urllib.request.Request(
+            f"{self.endpoint}/model/{model}/invoke",
+            data=json.dumps(body).encode(),
+            headers={"Authorization": f"Bearer {self.api_key}",
+                     "Content-Type": "application/json"},
+            method="POST",
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=_BEDROCK_TIMEOUT) as resp:
+                return json.loads(resp.read())
+        except urllib.error.HTTPError as e:
+            raise RuntimeError(f"Bedrock {e.code}: {e.read().decode(errors='replace')[:500]}") from None
+
+
+def _bedrock_api_key() -> str | None:
+    for var in ("AWS_BEARER_TOKEN_BEDROCK", "AWS_BEDROCK_API_KEY", "BEDROCK_API_KEY"):
+        val = os.environ.get(var, "").strip()
+        if val:
+            return val
+    return None
+
+
 def make_client(model: str):
     """Construct the right SDK client for `model` (each SDK is lazily imported so
     rendering-only code paths don't require either as a dependency). For the
@@ -86,6 +135,17 @@ def make_client(model: str):
         import anthropic
 
         return anthropic.Anthropic()
+
+    if provider_for(model) == "bedrock":
+        api_key = _bedrock_api_key()
+        if not api_key:
+            raise RuntimeError(
+                "Bedrock model requested but no API key set "
+                "(AWS_BEARER_TOKEN_BEDROCK / AWS_BEDROCK_API_KEY / BEDROCK_API_KEY)"
+            )
+        region = (os.environ.get("AWS_REGION_NAME") or os.environ.get("AWS_REGION")
+                  or "us-east-1").strip()
+        return BedrockClient(api_key, region)
 
     import openai
 
@@ -155,6 +215,24 @@ def complete(client, model: str, system: str, messages: list[dict],
             "cache_read_input_tokens": getattr(usage, "cache_read_input_tokens", 0) or 0,
         }
         return text, tokens, getattr(response, "model", None) or model
+
+    if provider_for(model) == "bedrock":
+        data = client.invoke(model, {
+            "anthropic_version": "bedrock-2023-05-31",
+            "max_tokens": max_tokens,
+            "system": system,
+            "messages": messages,
+        })
+        text = "".join(b.get("text", "") for b in data.get("content", [])
+                       if isinstance(b, dict) and b.get("type") == "text")
+        usage = data.get("usage") or {}
+        tokens = {
+            "input_tokens": usage.get("input_tokens", 0) or 0,
+            "output_tokens": usage.get("output_tokens", 0) or 0,
+            "cache_creation_input_tokens": usage.get("cache_creation_input_tokens", 0) or 0,
+            "cache_read_input_tokens": usage.get("cache_read_input_tokens", 0) or 0,
+        }
+        return text, tokens, data.get("model") or model
 
     # OpenAI / Azure OpenAI: the Responses API is the unified interface for both.
     response = client.responses.create(

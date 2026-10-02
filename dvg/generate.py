@@ -190,7 +190,7 @@ def main() -> None:
                         help="breadth of conceptual coverage (length follows content, not a target); "
                              "default: standard, or the topic's depth with --topic-id")
     parser.add_argument("--model", default=DEFAULT_MODEL,
-                        help="model id: 'claude-*' (Anthropic) or 'gpt-*'/'o*' (OpenAI)")
+                        help="model id: 'claude-*' (Anthropic), 'anthropic.*' (Bedrock) or 'gpt-*'/'o*' (OpenAI)")
     parser.add_argument("--out", help="path to write the IR JSON (default: examples/generated/<slug>.json)")
     parser.add_argument("--render", action="store_true", help="render the video after generating (constrained mode)")
     parser.add_argument("--quality", choices=["l", "m", "h", "k"], default="l")

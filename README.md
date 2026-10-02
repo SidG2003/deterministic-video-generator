@@ -43,6 +43,7 @@ cp .env.example .env                # then fill in a key for your provider
 python -m dvg.generate "How does a DNS lookup work?" --style midnight --render
 ```
 Provider is chosen from `--model`: `claude-*` → Anthropic (`ANTHROPIC_API_KEY`),
+`anthropic.*`/`us.anthropic.*` → AWS Bedrock (`AWS_BEARER_TOKEN_BEDROCK`, `AWS_REGION`),
 `gpt-*`/`o*` → Azure OpenAI or public OpenAI. For Azure, configure one numbered
 block per deployment (`AZURE_OPENAI_<N>_ENDPOINT/DEPLOYMENT/API_KEY`) — each can
 live on its own resource — and pass the deployment name as `--model`. See
