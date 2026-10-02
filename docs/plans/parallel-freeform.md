@@ -4,12 +4,8 @@ Self-contained execution plan. Read it fully before starting. Background and
 measurements: [../render-parallelization.md](../render-parallelization.md);
 prompt conventions: [../prompt-log.md](../prompt-log.md).
 
-**Scope of this version: architecture and pipeline only.** The goal is to get the
-two new pipelines generating and rendering correctly. The knowledge base
-(`dvg/kb/`: API check, technique snippets, manimgl table) and the overlap detector
-(`dvg/overlap.py`) are deliberately **not** integrated into the new modes. They
-will be added as hooks afterwards, measured, and this plan revised then (see
-"Hook points for later").
+Scope: get the right architecture and pipelines working end to end, then compare
+them against the existing mode on a fixed set of sample prompts.
 
 ## Goal
 Add two **opt-in** freeform pipelines next to the existing sequential
@@ -30,16 +26,20 @@ rendering flag, **`--render-strategy {sequential,parallel}`** (default
 ## Ground rules (apply to every step)
 - **Don't change existing behaviour.** `--mode freeform` and `--mode constrained`
   must behave exactly as before: same prompt (`freeform-v3`, `constrained-v1`),
-  same steps (the baseline keeps its existing `api_check` step and overlap
-  tracking), same `meta.json` fields. Only additive changes in shared modules.
-- **Keep the new modes free of the KB and the detector.** New code must not import
-  `dvg.kb` or `dvg.overlap`, and must not call `freeform._run` or
-  `freeform.api_check` (`_run` runs the overlap detector inside the sandbox).
-  New modes render only through the new engine (step 1b).
-- **Keep the security sandbox for all LLM-written code**: the security scan
-  `freeform.scan_code` (an import/call allowlist — not part of the KB) runs before
-  anything executes, and every render runs in a subprocess with the CPU rlimit.
-  A parallel worker is just another sandboxed subprocess.
+  same steps, same `meta.json` fields. Only additive changes in shared modules.
+- **Checks before any LLM-written code runs**, in this order:
+  1. `freeform.scan_code` — security scan (import/call allowlist);
+  2. `freeform.api_check` — static ManimCE API check: reads the code (never runs
+     it) and blocks calls that are certain to crash (undefined names, methods a
+     scene type doesn't have, wrong helper arguments, …), listing all of them at
+     once. Cheap: a one-time 0.07s setup per process, then ~6ms per scene;
+     verified thread-safe (160 concurrent checks, identical results).
+  Then every render runs in a sandboxed subprocess with the CPU rlimit.
+- **New modes render only through the new engine (step 1b), never through
+  `freeform._run`.** `_run` renders the whole `Generated` class in one process
+  with one media dir, so it can't render a single section or an animation range,
+  reseed per section, or isolate media dirs between workers. (Keeping the API
+  check does not require `_run`; they are independent functions.)
 - **Prompts:** every new prompt gets a family + version (`sectioned-v1`,
   `fanout-planner-v1`, `fanout-scene-v1`). Log the entry (intent first) in
   `docs/prompt-log.md` *before* using it, with tag + 12-char SHA-256, and add
@@ -48,9 +48,10 @@ rendering flag, **`--render-strategy {sequential,parallel}`** (default
   `meta.json` must record the prompt version(s) it used (`RunLogger.record_prompts`).
 - **Reuse, don't reimplement:** `dvg/manim_patches.py::fast_forward` (exact
   fast-forward), `dvg/runlog.py` (`RunLogger`, `timed`, `record_*`, unique run
-  dirs), `dvg/llm.py` (`make_client`, `complete`), and from `dvg/freeform.py`:
-  `scan_code`, `extract_narration`, `build_freeform_prompt` (v3 text to build on),
-  `DEPTH_HINTS` (via `dvg.generate`), `_QUALITY`.
+  dirs), `dvg/llm.py` (`make_client`, `complete`), `dvg/topics.py` (sample
+  prompts), and from `dvg/freeform.py`: `scan_code`, `api_check`,
+  `extract_narration`, `build_freeform_prompt` (v3 text to build on), `_QUALITY`;
+  `DEPTH_HINTS` from `dvg/generate.py`.
 - **Never commit** `.env`, `runs/`, `media/`, `examples/generated/` (gitignored).
   Commit messages end with
   `Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>`.
@@ -63,6 +64,15 @@ rendering flag, **`--render-strategy {sequential,parallel}`** (default
   are chosen by `--model`: `gpt-5.4-mini-deployment-db7e5` (cheap, default for
   scenes) and `gpt-5.4-deployment-951f1` (stronger; planner / escalation).
 - System needs `ffmpeg`/`ffprobe` and LaTeX (already installed).
+
+## Sample prompts (already in the repo)
+Fixed prompts for every comparison live in **`eval/topics.toml`** (`t01`–`t09`),
+each with an id, a short name, the prompt text, a depth, and what it stresses.
+- `python -m dvg.topics` lists them; `python -m dvg.topics 3` shows one.
+- `python -m dvg.generate --topic-id 3 --mode freeform` runs one (by number, id
+  `t03` or name `dns`); `meta.json` then records `params.topic_id`.
+- Never edit an existing entry's prompt or depth (it breaks comparability with past
+  runs); add a new id instead.
 
 ## Measured facts the design relies on
 (from `docs/render-parallelization.md`; one 16-core Mac, 480p)
@@ -104,11 +114,13 @@ rendering flag, **`--render-strategy {sequential,parallel}`** (default
 
 ## Step 1 — Foundation (`feat/parallel-render`)
 
-### 1a. Run-log additions (`dvg/runlog.py`) — additive only
-- `RUNS_DIR = Path(os.environ.get("DVG_RUNS_DIR", "runs"))`.
-- Optional `scene: int | None` (1-based) on `record_step`, `record_tokens`, and
-  `timed` — same pattern as `attempt`. Omitted when None, so existing `meta.json`
-  output is unchanged.
+### 1a. Run-log and check additions — additive only
+- `dvg/runlog.py`: `RUNS_DIR = Path(os.environ.get("DVG_RUNS_DIR", "runs"))`.
+- Optional `scene: int | None` (1-based) on `record_step`, `record_tokens`,
+  `record_api_check`, and `timed` — same pattern as `attempt`. Omitted when None,
+  so existing `meta.json` output is unchanged.
+- `freeform.api_check(code, logger=None, attempt=None)` gains an optional
+  `scene=None`, passed through to `record_api_check`.
 - `record_render_units(units)` → `meta.json["render_units"]`: one entry per unit
   `{unit, kind: "scene"|"section"|"slice", section, anim_range, frames,
   seconds, cpu_seconds, worker}`, plus `render_strategy`, `workers`, and
@@ -117,10 +129,9 @@ rendering flag, **`--render-strategy {sequential,parallel}`** (default
 ### 1b. Parallel render engine — new `dvg/parallel_render.py`
 - **Work unit** = (scene file, class to render, optional section method, optional
   animation range `[a, b]`).
-- **Worker** = a sandboxed subprocess with its own runner (do **not** reuse
-  `freeform._RUNNER`/`_run`, which run the overlap detector): CPU rlimit, its own
-  temp dir **and its own `media_dir`**, `sys.path` to the project root.
-  The runner:
+- **Worker** = a sandboxed subprocess with its own runner script (modelled on the
+  sandbox in `freeform._run`, but it renders one unit): CPU rlimit, its own temp
+  dir **and its own `media_dir`**, `sys.path` to the project root. The runner:
   - builds a subclass of the generated class whose `construct()` runs only the
     unit's section (or the whole scene), reseeding `random` and `np.random` with
     `1000 + section_index` right before each section;
@@ -128,10 +139,10 @@ rendering flag, **`--render-strategy {sequential,parallel}`** (default
     wraps the render in `manim_patches.fast_forward()`;
   - writes its mp4 and `unit.json` (timing, frames).
 - **Planning:**
-  - A fast analysis pass (`fast_forward`, no rasterizing, `write_to_movie=False`)
-    lists every `play()` with its frame count, per section. Define the fast-pass
-    config in this module (the similar `_FAST` dict lives in `dvg/overlap.py`;
-    don't import it).
+  - A fast analysis pass (`fast_forward`, no rasterizing,
+    `from_animation_number` past the end, `write_to_movie=False`) lists every
+    `play()` with its frame count, per section. Keep this fast-pass config in this
+    module.
   - Split a section into slices only if its frames exceed a threshold (default:
     above 25% of the video's total frames and above 150 frames).
   - Balance slices by frame count. **Known limitation:** 3D surfaces cost far more
@@ -164,9 +175,8 @@ Shared by A (whole file) and B (each scene behaves as a one-section file).
   statically, each as a message with a line number.
 - `check_runtime(code_path) -> list[str]`: one fast-forward pass (subprocess,
   sandboxed) that, after each section, checks that no visible mobjects remain
-  (implement a small visibility test here: has points and fill or stroke opacity
-  > 0.05 — don't import `dvg.overlap`), the camera frame is back at its default
-  centre/width (2D), and ambient rotation is off (3D).
+  (visible = has points and fill or stroke opacity > 0.05), the camera frame is
+  back at its default centre/width (2D), and ambient rotation is off (3D).
 - Messages are written to go straight into a repair message. Version: `sections-v1`.
 - **Important:** a sectioned file must always be rendered through the section
   harness (per-section reseeding), with **both** strategies, so sequential and
@@ -177,6 +187,9 @@ Shared by A (whole file) and B (each scene behaves as a one-section file).
   `dvg/modes/sectioned.py::run(args)` and `dvg/modes/fanout.py::run(args)`.
   Create `dvg/modes/__init__.py` and both modules as stubs raising
   `NotImplementedError`. This way A and B never touch `generate.py` again.
+- Dispatch **after** `_resolve_topic(parser, args)`, so the new modes get
+  `--topic-id` for free; they must include `_topic_param(args)` in their
+  `RunLogger` params, like the existing modes.
 - New flags (used by the new modes; ignored by the existing ones):
   `--render-strategy {sequential,parallel}` (default `sequential`),
   `--workers N` (default `cpu_count-1`). For B: `--planner-model`,
@@ -199,24 +212,25 @@ Shared by A (whole file) and B (each scene behaves as a one-section file).
   - a determinism check (render a unit twice → identical frames).
 - `tests/test_sections.py`: the static and runtime contract checks catch each
   rule (one bad fixture per rule) and pass the good fixture.
-- `scripts/ab_eval.py` (used in step 4): `--topics FILE --modes a,b,c --repeats N
-  --model ... --render-strategy ...` runs each cell and collects `meta.json` into
-  `runs/_eval/<timestamp>/results.csv` + `summary.md` + a contact sheet per run.
-  It must call the CLI or the mode `run()` functions, not duplicate pipeline logic.
-  Read only fields every mode has, and treat missing ones as blank.
+- `scripts/ab_eval.py` (used in step 4):
+  `--topics t01,t03,dns` (default: all in `eval/topics.toml`) `--modes a,b,c
+  --repeats N --model ... --render-strategy ...`. Runs each cell via the CLI with
+  `--topic-id`, then collects `meta.json` into
+  `runs/_eval/<timestamp>/results.csv` + `summary.md` + a contact sheet per run,
+  grouped by `params.topic_id`. It must not duplicate pipeline logic. Read only
+  fields every mode has, and treat missing ones as blank.
 
 ### Acceptance (step 1)
 - `pytest tests/` passes; frame hashes identical across all three render paths.
 - Slow benchmark: time-slicing the whole `tests/fixtures/entropy_scene.py` with the
   engine is faster than its sequential render and frame-identical (sequential
   measured at 63.5s at `-ql`).
-- `python -m dvg.generate "<topic>" --mode freeform` behaves exactly as before:
+- `python -m dvg.generate --topic-id 9 --mode freeform` behaves exactly as before:
   same steps and `meta.json` structure (compare against a run on the
   `baseline/sequential` tag).
-- Isolation check — this must print nothing (it catches relative imports such as
-  `from .overlap import …` / `from .kb.check import …`, and any use of `_run`):
+- New modes never use `freeform._run` — this must print nothing:
   ```bash
-  grep -rnE '(from|import) .*(overlap|kb)|api_check|_RUNNER|(^|[^A-Za-z0-9_.])_run\(|import.*[^A-Za-z0-9_]_run([^A-Za-z0-9_]|$)' \
+  grep -rnE '_RUNNER|(^|[^A-Za-z0-9_.])_run\(|import.*[^A-Za-z0-9_]_run([^A-Za-z0-9_]|$)' \
     dvg/parallel_render.py dvg/sections.py dvg/modes/ dvg/fanout_preamble.py 2>/dev/null
   ```
 - README documents the new flags. Merge to `main`.
@@ -229,18 +243,19 @@ Owns `dvg/modes/sectioned.py` and its prompt only.
   + heavy-scene guidance: split long 3D animations into ~3s plays, keep Surface
   resolution moderate, no `always_redraw` on large objects. Log it in prompt-log
   first.
-- **Pipeline per attempt:** LLM call → `scan_code` → `sections.check_static` →
-  `sections.check_runtime` → render with the engine (strategy from the flag) →
-  verify. Any failure raises a repairable error listing **all** problems found at
-  that stage; repair loop as in `generate_freeform` (`max_repairs`,
-  `attempt_N_feedback.txt`).
-- **Logging:** steps `llm_call`, `scan`, `contract_check`, `render`, `verify` with
-  `attempt`; tokens per attempt; prompt version; `render_units`.
+- **Pipeline per attempt:** LLM call → `scan_code` → `api_check` →
+  `sections.check_static` → `sections.check_runtime` → render with the engine
+  (strategy from the flag) → verify. Any failure raises a repairable error listing
+  **all** problems found at that stage; repair loop as in `generate_freeform`
+  (`max_repairs`, `attempt_N_feedback.txt`).
+- **Logging:** steps `llm_call`, `scan`, `api_check`, `contract_check`, `render`,
+  `verify` with `attempt`; tokens per attempt; prompt version; `render_units`.
 - **Artifacts:** `scene.py`, `narration.json` (one entry per section), `video.mp4`.
-- **Acceptance:** 3 topics with `gpt-5.4-mini` at `-ql` produce videos with
-  `--render-strategy parallel`; for one of them a sequential render through the
-  harness is frame-identical; `meta.json` has `system_prompt_version:
-  sectioned-v1` and `render_units`; the step 1 isolation check still prints nothing.
+- **Acceptance:** 3 topics from `eval/topics.toml` with `gpt-5.4-mini` at `-ql`
+  produce videos with `--render-strategy parallel`; for one of them a sequential
+  render through the harness is frame-identical; `meta.json` has
+  `system_prompt_version: sectioned-v1`, `params.topic_id` and `render_units`;
+  the step 1 `_run` check still prints nothing.
 
 ## Step 3 — Approach B: planner + fan-out (`feat/freeform-fanout`)
 Owns `dvg/modes/fanout.py`, `dvg/fanout_preamble.py`, and the planner and scene
@@ -272,7 +287,7 @@ Input: topic + depth. Output must be strict JSON, validated before use:
 Built programmatically from `plan.style` and prepended to every scene, so scenes
 can't drift on style: imports, palette constants, the background colour, font
 sizes. Keep it a module so shared helpers can be added later. It must pass
-`scan_code` by itself.
+`scan_code` and `api_check` by itself.
 
 ### Scene calls (`fanout-scene-v1`; default model `gpt-5.4-mini-deployment-db7e5`)
 - **Each call gets:** system prompt (v3 layout rules + the contract for a single
@@ -282,14 +297,16 @@ sizes. Keep it a module so shared helpers can be added later. It must pass
   part last.
 - **Each scene is a one-section file:** `class Generated(...)`, `SECTIONS =
   ["main"]`, `NARRATION = [<scene narration>]`, preamble prepended. It is checked
-  and rendered like any sectioned file (contract checks + engine).
+  and rendered like any sectioned file (`scan_code` → `api_check` → contract
+  checks → engine).
 - **Concurrency:** a `ThreadPoolExecutor` capped by `--max-concurrency` (default 4),
   relying on the OpenAI SDK's retries plus your own backoff on 429/5xx.
   Optionally send the first scene alone to warm the prompt cache.
-- **Per scene:** scan → contract checks → render → verify; repair only that scene
-  (its own message history), up to `max_repairs`.
-- **Logging:** tokens and steps recorded with `scene=i` (and `attempt`). Code is
-  stored as `scenes/s01.py`, …; feedback as `scenes/s01_attempt_N_feedback.txt`.
+- **Per scene:** scan → api_check → contract checks → render → verify; repair only
+  that scene (its own message history), up to `max_repairs`.
+- **Logging:** tokens, steps and api_check results recorded with `scene=i` (and
+  `attempt`). Code is stored as `scenes/s01.py`, …; feedback as
+  `scenes/s01_attempt_N_feedback.txt`.
 - **Failure policy:** if a scene exhausts its repairs and `--escalate-model` is
   set, retry it once with that model; otherwise the run fails with a per-scene
   report (no partial videos in v1).
@@ -299,54 +316,33 @@ sizes. Keep it a module so shared helpers can be added later. It must pass
 - **Rendering:** each scene is one unit, and heavy scenes are time-sliced by the
   engine. Rendering a scene can start as soon as its code passes checks; it
   doesn't have to wait for the other LLM calls.
-- **Acceptance:** 3 topics produce videos; `plan.json` and the per-scene files are
-  saved; `meta.json` has the planner and scene prompt versions and per-scene token
-  totals; one scene that fails is repaired without regenerating the others; the
-  step 1 isolation check still prints nothing.
+- **Acceptance:** 3 topics from `eval/topics.toml` produce videos; `plan.json` and
+  the per-scene files are saved; `meta.json` has the planner and scene prompt
+  versions, `params.topic_id` and per-scene token totals; one scene that fails is
+  repaired without regenerating the others; the step 1 `_run` check still prints
+  nothing.
 
 ---
 
 ## Step 4 — Comparison (on `main`, all merged)
-A first comparison to confirm the pipelines work and to get baseline numbers.
-The full evaluation is redone after the KB/detector hooks are added.
-- **Topics** (fixed, `depth standard`): entropy and the second law (3D), Fourier
-  series (formulas + graphs), how DNS lookup works, TCP handshake, public-key
-  cryptography, Bloom filters, gradient descent (3D surface), Bayes' theorem
-  (formula-heavy), semaphores.
-- **Cells:** 3 modes × `gpt-5.4-mini` × 2 repeats at `-ql`. Then a subset at `-qh`
-  for render KPIs. Run sequentially or with a small cap — 54 runs on one Azure
-  deployment will hit rate limits.
-- **KPIs** (from `meta.json`):
-  - success, attempts / repairs;
+- **Topics:** all of `eval/topics.toml` (`t01`–`t09`).
+- **Cells:** 3 modes × `gpt-5.4-mini` × 2 repeats at `-ql`, via `scripts/ab_eval.py`.
+  Then a subset at `-qh` for render KPIs. Run sequentially or with a small cap —
+  54 runs on one Azure deployment will hit rate limits.
+- **KPIs** (from `meta.json`, grouped by `params.topic_id`):
+  - success, attempts / repairs, API-check errors per attempt;
   - tokens in/out/cached (total, and per scene for B);
   - LLM wall time, render wall time, total wall time;
   - CPU seconds, cores used;
   - video duration.
-- **Known confound:** the baseline (`--mode freeform`) still runs its existing
-  `api_check` step, which catches some crashes before rendering and changes how
-  repairs happen; the new modes don't yet. Report attempts/repairs with that
-  caveat.
 - **Visual rubric** (1–5, from contact sheets and watching): cohesion across
-  scenes, wow/beauty, correctness, legibility (judged by eye), pacing. Also watch
-  whether B's scenes feel disjointed and whether A's look more uniform.
+  scenes, wow/beauty, correctness, legibility, pacing. Also watch whether B's
+  scenes feel disjointed and whether A's look more uniform.
 - **Write-up:** `docs/results/parallel-freeform-ab.md` with tables, the cost per
   successful video, and observations. Note sample size; treat small differences
   as directional.
 
-## Hook points for later (not part of this plan)
-These are where KB and detector features plug in once the pipelines work, so that
-adding them is a small, measurable change:
-- **Static API check:** after `scan_code`, before contract checks (per attempt in
-  A, per scene in B).
-- **Overlap detector:** inside the render worker, per section / scene; once per
-  section for sliced units (a slice fast-forwards earlier animations and would
-  double-count).
-- **Technique snippets / manimgl table:** in the scene prompt (B: per scene, from a
-  `techniques` field the planner could add) or in repair messages.
-- **Layout helpers:** in the fan-out preamble module.
-
 ## Out of scope (do not do in this plan)
-- Any integration of `dvg/kb/` or `dvg/overlap.py` into the new modes.
 - Changing freeform-v3 or the constrained pipeline.
 - `--render-strategy` for the existing `--mode freeform` / `--mode constrained`.
 - Time-slicing constrained IRs (a hypothesis in the render doc; untested).
