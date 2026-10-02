@@ -2,7 +2,7 @@
 Fixed sample prompts for comparing pipelines (eval/topics.toml).
 
     python -m dvg.topics           # list all
-    python -m dvg.topics 3 dns     # show some (by number, id like t03, or name)
+    python -m dvg.topics 5 llms    # show some (by number, id like t05, or name)
 """
 
 from __future__ import annotations
@@ -36,7 +36,7 @@ def load_topics(path: Path = TOPICS_FILE) -> list[Topic]:
 
 
 def get_topic(ref: str | int, path: Path = TOPICS_FILE) -> Topic:
-    """Look a topic up by number (3, "03"), id ("t03") or name ("dns")."""
+    """Look a topic up by number (5, "05"), id ("t05") or name ("rocket-orbit")."""
     topics = load_topics(path)
     key = str(ref).strip().lower()
     if key.isdigit():

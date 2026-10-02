@@ -80,12 +80,12 @@ topics/code ever come from untrusted users, run it inside a network-isolated
 container (Docker/gVisor) with a read-only filesystem instead.
 
 ### Sample prompts for comparisons
-A fixed set of prompts lives in [eval/topics.toml](eval/topics.toml) (`t01`–`t09`),
+A fixed set of prompts lives in [eval/topics.toml](eval/topics.toml) (`t01`–`t11`),
 so different modes, models and prompt versions can be compared on the same inputs.
 Pick one by number, id or name; the run's `meta.json` records `params.topic_id`.
 ```bash
 python -m dvg.topics                                  # list them
-python -m dvg.generate --topic-id 3 --mode freeform   # same as --topic-id t03 / dns
+python -m dvg.generate --topic-id 5 --mode freeform   # same as --topic-id t05 / rocket-orbit
 ```
 Don't edit an existing entry's prompt or depth (past runs would stop being
 comparable); add a new id instead.

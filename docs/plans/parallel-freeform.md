@@ -66,11 +66,11 @@ rendering flag, **`--render-strategy {sequential,parallel}`** (default
 - System needs `ffmpeg`/`ffprobe` and LaTeX (already installed).
 
 ## Sample prompts (already in the repo)
-Fixed prompts for every comparison live in **`eval/topics.toml`** (`t01`–`t09`),
+Fixed prompts for every comparison live in **`eval/topics.toml`** (`t01`–`t11`),
 each with an id, a short name, the prompt text, a depth, and what it stresses.
-- `python -m dvg.topics` lists them; `python -m dvg.topics 3` shows one.
-- `python -m dvg.generate --topic-id 3 --mode freeform` runs one (by number, id
-  `t03` or name `dns`); `meta.json` then records `params.topic_id`.
+- `python -m dvg.topics` lists them; `python -m dvg.topics 5` shows one.
+- `python -m dvg.generate --topic-id 5 --mode freeform` runs one (by number, id
+  `t05` or name `rocket-orbit`); `meta.json` then records `params.topic_id`.
 - Never edit an existing entry's prompt or depth (it breaks comparability with past
   runs); add a new id instead.
 
@@ -213,7 +213,7 @@ Shared by A (whole file) and B (each scene behaves as a one-section file).
 - `tests/test_sections.py`: the static and runtime contract checks catch each
   rule (one bad fixture per rule) and pass the good fixture.
 - `scripts/ab_eval.py` (used in step 4):
-  `--topics t01,t03,dns` (default: all in `eval/topics.toml`) `--modes a,b,c
+  `--topics t01,t05,llms` (default: all in `eval/topics.toml`) `--modes a,b,c
   --repeats N --model ... --render-strategy ...`. Runs each cell via the CLI with
   `--topic-id`, then collects `meta.json` into
   `runs/_eval/<timestamp>/results.csv` + `summary.md` + a contact sheet per run,
@@ -225,7 +225,7 @@ Shared by A (whole file) and B (each scene behaves as a one-section file).
 - Slow benchmark: time-slicing the whole `tests/fixtures/entropy_scene.py` with the
   engine is faster than its sequential render and frame-identical (sequential
   measured at 63.5s at `-ql`).
-- `python -m dvg.generate --topic-id 9 --mode freeform` behaves exactly as before:
+- `python -m dvg.generate --topic-id 11 --mode freeform` behaves exactly as before:
   same steps and `meta.json` structure (compare against a run on the
   `baseline/sequential` tag).
 - New modes never use `freeform._run` — this must print nothing:
@@ -325,10 +325,10 @@ sizes. Keep it a module so shared helpers can be added later. It must pass
 ---
 
 ## Step 4 — Comparison (on `main`, all merged)
-- **Topics:** all of `eval/topics.toml` (`t01`–`t09`).
+- **Topics:** all of `eval/topics.toml` (`t01`–`t11`).
 - **Cells:** 3 modes × `gpt-5.4-mini` × 2 repeats at `-ql`, via `scripts/ab_eval.py`.
   Then a subset at `-qh` for render KPIs. Run sequentially or with a small cap —
-  54 runs on one Azure deployment will hit rate limits.
+  66 runs on one Azure deployment will hit rate limits.
 - **KPIs** (from `meta.json`, grouped by `params.topic_id`):
   - success, attempts / repairs, API-check errors per attempt;
   - tokens in/out/cached (total, and per scene for B);

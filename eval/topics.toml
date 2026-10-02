@@ -2,77 +2,92 @@
 #
 # Pick one by number, id or name:
 #     python -m dvg.topics                      # list them
-#     python -m dvg.topics 3                    # show one (also: t03, dns)
-#     python -m dvg.generate --topic-id 3 --mode freeform
+#     python -m dvg.topics 5                    # show one (also: t05, rocket-orbit)
+#     python -m dvg.generate --topic-id 5 --mode freeform
 #
 # Rules — keep comparisons valid:
-# - Never change the `prompt` (or `depth`) of an existing entry: past runs record
-#   the topic id, and results are only comparable if the input stayed the same.
+# - Never change the `prompt` (or `depth`) of an existing entry: runs record the
+#   topic id, and results are only comparable if the input stayed the same.
 #   To try a different wording, add a NEW entry with the next id.
-# - Ids are permanent; don't renumber or reuse them.
+# - Ids are permanent; don't renumber or reuse them. Ids match the numbering of
+#   the original list (prompt 1 = t01).
+# - Prompts are kept verbatim as written (including wording quirks) — they are
+#   the exact user input.
 # - `stresses` says what the topic exercises, so a pipeline's weak spots show up.
-#
-# Wording of t03-t06 and t09 matches earlier runs, so those stay comparable.
 
 [[topic]]
 id = "t01"
 name = "entropy"
-prompt = "Entropy and the second law of thermodynamics"
+prompt = "I want to build real intuition for entropy and the second law of thermodynamics — why disorder tends to increase and what that actually means at the level of atoms and molecules. Help me understand this"
 depth = "standard"
-stresses = ["3d", "heavy-render", "many-sections"]
+stresses = ["particles", "statistics", "3d", "heavy-render"]
 
 [[topic]]
 id = "t02"
-name = "fourier"
-prompt = "How Fourier series build any periodic wave out of sine waves"
+name = "blue-sky"
+prompt = "Explain why the sky is blue and sunsets are red — I want to understand how light scattering actually causes this"
 depth = "standard"
-stresses = ["formulas", "graphs", "animation-over-time"]
+stresses = ["light-waves", "scattering", "colour"]
 
 [[topic]]
 id = "t03"
-name = "dns"
-prompt = "How does DNS lookup work?"
+name = "prism"
+prompt = "I want to understand why a prism splits white light into a rainbow — what's actually different about each color that makes this happen. Also help build up an understanding of refractive index and how it varies between materials."
 depth = "standard"
-stresses = ["process-diagram", "labels", "arrows"]
+stresses = ["optics", "refraction", "colour", "two-part-question"]
 
 [[topic]]
 id = "t04"
-name = "tcp"
-prompt = "How does TCP handshake work?"
+name = "em-induction"
+prompt = "I want to understand how electromagnetic induction works — how a changing magnetic field creates an electric current, and how it relates to generator and motor."
 depth = "standard"
-stresses = ["protocol-steps", "dense-labels", "replace-in-place"]
+stresses = ["fields", "3d", "physical-mechanism", "applications"]
 
 [[topic]]
 id = "t05"
-name = "public-key"
-prompt = "How does public key cryptography work?"
+name = "rocket-orbit"
+prompt = "Walk me through how a rocket actually gets to orbit — start with Newton's third law and a simple thrust example, build up to how mass loss changes the acceleration over time (the rocket equation), show staging and why we drop empty fuel tanks, and end with how all of that comes together to reach orbital velocity instead of just falling back down."
 depth = "standard"
-stresses = ["abstract-concepts", "diagram", "labels"]
+stresses = ["long-buildup", "many-sections", "formulas", "motion"]
 
 [[topic]]
 id = "t06"
-name = "bloom-filter"
-prompt = "How does a Bloom filter work?"
+name = "limits"
+prompt = "I want to understand the concept of a limit and why calculus needed it — what problem it solves that algebra alone couldn't handle."
 depth = "standard"
-stresses = ["data-structure", "grids", "step-by-step"]
+stresses = ["calculus", "graphs", "formulas"]
 
 [[topic]]
 id = "t07"
-name = "gradient-descent"
-prompt = "How does gradient descent find the minimum of a function?"
+name = "bayes"
+prompt = "Explain Bayes' theorem such that probability updating feel intuitive instead of just a formula to memorize."
 depth = "standard"
-stresses = ["3d", "surface", "motion-along-path"]
+stresses = ["formulas", "probability-visuals", "intuition"]
 
 [[topic]]
 id = "t08"
-name = "bayes"
-prompt = "Bayes' theorem explained"
+name = "integrals"
+prompt = "I really want to build intuition for what an integral actually is — why it represents accumulated area, and how that connects back to the idea of a derivative."
 depth = "standard"
-stresses = ["formulas", "algebra", "probability-visuals"]
+stresses = ["calculus", "graphs", "area", "accumulation"]
 
 [[topic]]
 id = "t09"
-name = "semaphore"
-prompt = "What is a semaphore?"
+name = "matrix-transforms"
+prompt = "I want to understand matrix transformations — what a matrix is actually doing to space when you multiply a vector by it, and why that matters for things like rotations, scaling, and computer graphics."
 depth = "standard"
-stresses = ["concurrency", "light", "counters"]
+stresses = ["linear-algebra", "grids", "transformations"]
+
+[[topic]]
+id = "t10"
+name = "fractals"
+prompt = "I want to understand fractals and self-similarity — why some shapes look the same no matter how far you zoom in, and how something that simple can come from such a basic repeated rule."
+depth = "standard"
+stresses = ["recursion", "zoom", "heavy-render"]
+
+[[topic]]
+id = "t11"
+name = "llms"
+prompt = "I want to understand how LLMs work in a simple way"
+depth = "standard"
+stresses = ["abstract-concepts", "diagram", "short-prompt"]

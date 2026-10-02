@@ -174,7 +174,7 @@ def main() -> None:
     parser.add_argument("topic", nargs="?", help="the concept/story to explain")
     parser.add_argument("--topic-id",
                         help="use a fixed sample prompt from eval/topics.toml by number, id or name "
-                             "(e.g. 3, t03, dns); list them with: python -m dvg.topics")
+                             "(e.g. 5, t05, rocket-orbit); list them with: python -m dvg.topics")
     parser.add_argument("--mode", choices=["constrained", "freeform"], default="constrained",
                         help="constrained = safe IR vocabulary (default); "
                              "freeform = LLM writes full Manim code, sandboxed")
