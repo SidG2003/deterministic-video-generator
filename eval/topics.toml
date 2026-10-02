@@ -1,0 +1,78 @@
+# Fixed sample prompts for comparing pipelines (modes, models, prompt versions).
+#
+# Pick one by number, id or name:
+#     python -m dvg.topics                      # list them
+#     python -m dvg.topics 3                    # show one (also: t03, dns)
+#     python -m dvg.generate --topic-id 3 --mode freeform
+#
+# Rules — keep comparisons valid:
+# - Never change the `prompt` (or `depth`) of an existing entry: past runs record
+#   the topic id, and results are only comparable if the input stayed the same.
+#   To try a different wording, add a NEW entry with the next id.
+# - Ids are permanent; don't renumber or reuse them.
+# - `stresses` says what the topic exercises, so a pipeline's weak spots show up.
+#
+# Wording of t03-t06 and t09 matches earlier runs, so those stay comparable.
+
+[[topic]]
+id = "t01"
+name = "entropy"
+prompt = "Entropy and the second law of thermodynamics"
+depth = "standard"
+stresses = ["3d", "heavy-render", "many-sections"]
+
+[[topic]]
+id = "t02"
+name = "fourier"
+prompt = "How Fourier series build any periodic wave out of sine waves"
+depth = "standard"
+stresses = ["formulas", "graphs", "animation-over-time"]
+
+[[topic]]
+id = "t03"
+name = "dns"
+prompt = "How does DNS lookup work?"
+depth = "standard"
+stresses = ["process-diagram", "labels", "arrows"]
+
+[[topic]]
+id = "t04"
+name = "tcp"
+prompt = "How does TCP handshake work?"
+depth = "standard"
+stresses = ["protocol-steps", "dense-labels", "replace-in-place"]
+
+[[topic]]
+id = "t05"
+name = "public-key"
+prompt = "How does public key cryptography work?"
+depth = "standard"
+stresses = ["abstract-concepts", "diagram", "labels"]
+
+[[topic]]
+id = "t06"
+name = "bloom-filter"
+prompt = "How does a Bloom filter work?"
+depth = "standard"
+stresses = ["data-structure", "grids", "step-by-step"]
+
+[[topic]]
+id = "t07"
+name = "gradient-descent"
+prompt = "How does gradient descent find the minimum of a function?"
+depth = "standard"
+stresses = ["3d", "surface", "motion-along-path"]
+
+[[topic]]
+id = "t08"
+name = "bayes"
+prompt = "Bayes' theorem explained"
+depth = "standard"
+stresses = ["formulas", "algebra", "probability-visuals"]
+
+[[topic]]
+id = "t09"
+name = "semaphore"
+prompt = "What is a semaphore?"
+depth = "standard"
+stresses = ["concurrency", "light", "counters"]

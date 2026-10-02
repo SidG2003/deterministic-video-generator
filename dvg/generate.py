@@ -125,7 +125,8 @@ def _run_freeform(args) -> None:
 
     print(f"Generating freeform Manim scene for: {args.topic!r} … (sandboxed, may take a bit)")
     logger = RunLogger("freeform", args.topic,
-                       {"depth": args.depth, "model": args.model, "quality": args.quality})
+                       {"depth": args.depth, "model": args.model, "quality": args.quality,
+                        **_topic_param(args)})
     try:
         code, video = generate_freeform(args.topic, model=args.model, quality=args.quality,
                                         depth=args.depth, logger=logger)
@@ -143,21 +144,51 @@ def _run_freeform(args) -> None:
     print(f"Run logged at {logger.dir}")
 
 
+def _topic_param(args) -> dict:
+    """{"topic_id": ...} when the topic came from eval/topics.toml, else nothing."""
+    return {"topic_id": args.topic_id} if getattr(args, "topic_id", None) else {}
+
+
+def _resolve_topic(parser, args) -> None:
+    """Fill args.topic/args.depth from --topic-id; exactly one topic source allowed."""
+    if args.topic_id and args.topic:
+        parser.error("give either a topic or --topic-id, not both")
+    if args.topic_id:
+        from .topics import get_topic
+
+        try:
+            t = get_topic(args.topic_id)
+        except KeyError as exc:
+            parser.error(exc.args[0])
+        args.topic_id, args.topic = t.id, t.prompt
+        if args.depth is None:
+            args.depth = t.depth
+    elif not args.topic:
+        parser.error("a topic is required (or --topic-id; list them with: python -m dvg.topics)")
+    if args.depth is None:
+        args.depth = "standard"
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Generate an explainer-video from a topic.")
-    parser.add_argument("topic", help="the concept/story to explain")
+    parser.add_argument("topic", nargs="?", help="the concept/story to explain")
+    parser.add_argument("--topic-id",
+                        help="use a fixed sample prompt from eval/topics.toml by number, id or name "
+                             "(e.g. 3, t03, dns); list them with: python -m dvg.topics")
     parser.add_argument("--mode", choices=["constrained", "freeform"], default="constrained",
                         help="constrained = safe IR vocabulary (default); "
                              "freeform = LLM writes full Manim code, sandboxed")
     parser.add_argument("--style", default="midnight", choices=["midnight", "paper"])
-    parser.add_argument("--depth", default="standard", choices=["overview", "standard", "deep"],
-                        help="breadth of conceptual coverage (length follows content, not a target)")
+    parser.add_argument("--depth", default=None, choices=["overview", "standard", "deep"],
+                        help="breadth of conceptual coverage (length follows content, not a target); "
+                             "default: standard, or the topic's depth with --topic-id")
     parser.add_argument("--model", default=DEFAULT_MODEL,
                         help="model id: 'claude-*' (Anthropic) or 'gpt-*'/'o*' (OpenAI)")
     parser.add_argument("--out", help="path to write the IR JSON (default: examples/generated/<slug>.json)")
     parser.add_argument("--render", action="store_true", help="render the video after generating (constrained mode)")
     parser.add_argument("--quality", choices=["l", "m", "h", "k"], default="l")
     args = parser.parse_args()
+    _resolve_topic(parser, args)
 
     if args.mode == "freeform":
         _run_freeform(args)
@@ -166,7 +197,7 @@ def main() -> None:
     print(f"Generating IR for: {args.topic!r} …")
     logger = RunLogger("constrained", args.topic,
                        {"style": args.style, "depth": args.depth, "model": args.model,
-                        "quality": args.quality, "render": args.render})
+                        "quality": args.quality, "render": args.render, **_topic_param(args)})
     try:
         data = generate_ir(args.topic, style=args.style, model=args.model,
                            depth=args.depth, logger=logger)
