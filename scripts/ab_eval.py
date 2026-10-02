@@ -69,16 +69,22 @@ def _contact_sheet(mp4: Path, out_png: Path, tiles: tuple[int, int] = (4, 3)) ->
 
 def _collect(meta: dict, run_dir: Path) -> dict:
     """KPI row from a run's meta.json — only fields any mode may record."""
+    params = meta.get("params") or {}
     tokens = meta.get("total_tokens") or {}
     steps = meta.get("step_totals_seconds") or {}
     api = meta.get("api_checks") or []
     api_errors = sum(a.get("errors", 0) for a in api)
     video = meta.get("video")
     duration = _video_duration(run_dir / video) if video and (run_dir / video).exists() else None
+    # Mode-agnostic: LLM time is any step whose name mentions llm (llm_call for the
+    # single-call modes, planner_llm + scene_llm for fan-out); model falls back to
+    # the fan-out scene/planner model when there is no single `model` param.
+    llm_seconds = round(sum(v for k, v in steps.items() if "llm" in k), 3) or ""
+    model = params.get("model") or params.get("scene_model") or params.get("planner_model") or ""
     return {
-        "topic_id": (meta.get("params") or {}).get("topic_id", ""),
+        "topic_id": params.get("topic_id", ""),
         "mode": meta.get("mode", ""),
-        "model": (meta.get("params") or {}).get("model", ""),
+        "model": model,
         "success": meta.get("success", ""),
         "attempts": meta.get("attempts", ""),
         "api_check_errors": api_errors,
@@ -86,7 +92,7 @@ def _collect(meta: dict, run_dir: Path) -> dict:
         "output_tokens": tokens.get("output_tokens", ""),
         "cached_tokens": tokens.get("cache_read_input_tokens", ""),
         "total_tokens": tokens.get("total_tokens", ""),
-        "llm_seconds": steps.get("llm_call", ""),
+        "llm_seconds": llm_seconds,
         "render_seconds": steps.get("render", steps.get("sandbox_render", "")),
         "render_strategy": meta.get("render_strategy", ""),
         "render_critical_path_s": meta.get("render_critical_path_seconds", ""),
