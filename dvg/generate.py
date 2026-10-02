@@ -212,8 +212,11 @@ def main() -> None:
     parser.add_argument("--narrate", action="store_true",
                         help="after rendering, synthesize the NARRATION as a voice track and "
                              "mux it over the video (writes video_narrated.mp4; macOS `say`)")
+    parser.add_argument("--tts", choices=["say", "firefly"], default="say",
+                        help="--narrate TTS backend: 'say' (local macOS) or 'firefly' "
+                             "(Adobe Firefly 3p ElevenLabs; needs FIREFLY_* in .env)")
     parser.add_argument("--voice", default=None,
-                        help="voice name for --narrate (macOS `say -v`); default: system voice")
+                        help="voice for --narrate: macOS `say -v` name, or a Firefly voiceId")
     args = parser.parse_args()
     _resolve_topic(parser, args)
 
