@@ -13,8 +13,18 @@ import pytest
 from conftest import FIXTURES
 
 from dvg import sections
+from dvg.freeform import FreeformError, scan_code
 
 GOOD = (FIXTURES / "sectioned_scene.py").read_text()
+
+
+def test_scan_allows_getattr_on_self_only():
+    # The contract's construct() dispatches via getattr(self, name)(); the scanner
+    # must permit that but still block getattr used as an escape.
+    scan_code(GOOD)  # contains `getattr(self, name)()` and must pass
+    for bad in ["getattr(np, '__dict__')", "getattr(obj, 'x')"]:
+        with pytest.raises(FreeformError):
+            scan_code("from manim import *\n" + bad)
 
 # A compact contract-following scene used as the base for the "bad" mutations.
 MINI = textwrap.dedent('''

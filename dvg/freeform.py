@@ -256,7 +256,16 @@ def scan_code(code: str) -> None:
                 raise FreeformError(f"disallowed import from: {node.module}")
         elif isinstance(node, ast.Call):
             if isinstance(node.func, ast.Name) and node.func.id in _FORBIDDEN_CALLS:
-                raise FreeformError(f"disallowed call: {node.func.id}()")
+                # The section contract's construct() dispatches with
+                # `getattr(self, name)()`; allow getattr ONLY on self (benign
+                # dynamic attribute access on the scene). getattr on a module or
+                # builtin — the real escape (getattr(x, "__globals__")) — stays
+                # blocked, as do setattr/delattr/vars/globals/… .
+                if (node.func.id == "getattr" and node.args
+                        and isinstance(node.args[0], ast.Name) and node.args[0].id == "self"):
+                    pass
+                else:
+                    raise FreeformError(f"disallowed call: {node.func.id}()")
         elif isinstance(node, ast.Attribute):
             if node.attr.startswith("__") and node.attr.endswith("__"):
                 raise FreeformError(f"dunder attribute access: {node.attr}")
