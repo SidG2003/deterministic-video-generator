@@ -105,7 +105,9 @@ def _collect(meta: dict, run_dir: Path) -> dict:
 
 
 def _run_cell(topic_id: str, mode: str, args, eval_runs: Path) -> dict | None:
-    before = {p.name for p in eval_runs.iterdir()} if eval_runs.exists() else set()
+    # RunLogger writes to <DVG_RUNS_DIR>/<mode>/<timestamp>_<slug>, so look there.
+    mode_dir = eval_runs / mode
+    before = {p.name for p in mode_dir.iterdir()} if mode_dir.exists() else set()
     cmd = [sys.executable, "-m", "dvg.generate", "--topic-id", topic_id,
            "--mode", mode, "--model", args.model, "--quality", args.quality]
     if mode in ("freeform-sectioned", "freeform-fanout"):
@@ -126,11 +128,11 @@ def _run_cell(topic_id: str, mode: str, args, eval_runs: Path) -> dict | None:
     proc = subprocess.run(cmd, env=env, capture_output=True, text=True)
     if proc.returncode != 0:
         print(f"    (exit {proc.returncode}) {proc.stderr.strip().splitlines()[-1:]}")
-    after = {p.name for p in eval_runs.iterdir()} if eval_runs.exists() else set()
+    after = {p.name for p in mode_dir.iterdir()} if mode_dir.exists() else set()
     new = sorted(after - before)
     if not new:
         return None
-    run_dir = eval_runs / new[-1]
+    run_dir = mode_dir / new[-1]
     meta_path = run_dir / "meta.json"
     if not meta_path.exists():
         return None

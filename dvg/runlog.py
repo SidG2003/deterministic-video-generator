@@ -78,7 +78,9 @@ class RunLogger:
         self.params = params or {}
         now = datetime.now()
         self.timestamp = now.isoformat(timespec="seconds")
-        self.dir = _unique_run_dir(Path(base), f"{now:%Y%m%d_%H%M%S}_{mode}_{_slug(topic)}")
+        # Group runs by mode: runs/<mode>/<timestamp>_<slug>/ (the mode is the folder,
+        # so it is dropped from the leaf name). Easier to browse one kind at a time.
+        self.dir = _unique_run_dir(Path(base) / mode, f"{now:%Y%m%d_%H%M%S}_{_slug(topic)}")
         self._start = time.perf_counter()
         self.steps: list[dict] = []
         self.tokens: list[dict] = []

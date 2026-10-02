@@ -201,7 +201,8 @@ python -m dvg.build examples/pythagoras.json --quality l
 ```
 
 ## Run logs
-Every generation run is archived under `runs/<timestamp>_<mode>_<slug>/` (git-ignored):
+Every generation run is archived under `runs/<mode>/<timestamp>_<slug>/` (git-ignored;
+grouped by mode so each kind is easy to browse):
 - `prompt.txt`, `system_prompt.txt` — the exact user message and system prompt sent to the model
 - `attempt_N.txt` / `attempt_N.py` — each LLM attempt (so repair rounds are visible)
 - `attempt_N_feedback.txt` — the repair message sent back after attempt N failed
