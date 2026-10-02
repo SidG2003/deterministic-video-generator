@@ -129,8 +129,8 @@ def build_sectioned_prompt() -> str:
     ])
 
 
-SECTIONED_PROMPT_VERSION = "sectioned-v3"
-SECTIONED_PROMPT_SHA = "a2f127785088"
+SECTIONED_PROMPT_VERSION = "sectioned-v4"
+SECTIONED_PROMPT_SHA = "f8f8d3d0e241"
 
 
 def sectioned_prompt_version() -> str:

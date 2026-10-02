@@ -72,7 +72,7 @@ Return ONE strict JSON object, and NOTHING else (no markdown fences, no prose):
       "goal": "what the viewer should learn in this scene",
       "visual": "the central visual metaphor / what is on screen",
       "on_screen_text": ["short", "phrases"],
-      "narration": "the spoken script for this scene (ONE or TWO short sentences)",
+      "narration": "the spoken script for this scene (ONE short sentence, ~12-18 words)",
       "scene_type": "Scene | MovingCameraScene | ThreeDScene",
       "enters_with": "empty stage",
       "leaves_with": "empty stage",
@@ -84,8 +84,10 @@ Return ONE strict JSON object, and NOTHING else (no markdown fences, no prose):
 RULES
 - 3 to 6 scenes so the whole film fits ~30-35s. Ids unique (s01, s02, ...), in order.
 - Open with a short title scene; build one idea per scene; end on the takeaway.
-- Keep narration SHORT — about 20-35 words per scene (one or two sentences). This is
-  what keeps each scene to ~5-8 seconds; long narration makes the film run over.
+- Keep narration VERY SHORT — ONE short sentence per scene (about 12-18 words), and
+  about 80 words across the whole film. The narration is read aloud as a voiceover
+  that must FIT the ~30-35s film at a natural pace; longer scripts overrun and get
+  cut off.
 - Every scene starts and ends on an empty stage (scenes are rendered separately and
   concatenated — nothing carries over).
 - Use scene_type "ThreeDScene" only when the idea is genuinely spatial. Mark a scene
@@ -105,8 +107,8 @@ def build_planner_prompt() -> str:
     return _PLANNER_PROMPT.strip()
 
 
-PLANNER_PROMPT_VERSION = "fanout-planner-v2"
-PLANNER_PROMPT_SHA = "fc8f9b3aef74"
+PLANNER_PROMPT_VERSION = "fanout-planner-v3"
+PLANNER_PROMPT_SHA = "c74c1f87d283"
 
 
 def planner_prompt_version() -> str:
@@ -159,8 +161,8 @@ def build_scene_prompt() -> str:
     return head + "\n\n" + tail
 
 
-SCENE_PROMPT_VERSION = "fanout-scene-v3"
-SCENE_PROMPT_SHA = "2bce4219d86c"
+SCENE_PROMPT_VERSION = "fanout-scene-v4"
+SCENE_PROMPT_SHA = "be4f0b45e42f"
 
 
 def scene_prompt_version() -> str:

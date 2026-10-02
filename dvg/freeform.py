@@ -166,10 +166,13 @@ NARRATION (required)
           "spoken narration for section 2",
       ]
   One entry per section, in order — the voiceover script a narrator reads ALOUD.
-  This is the spoken explanation, distinct from the short on-screen text; write it
-  as clear, flowing sentences that teach the idea. It must be a plain list of string
-  literals and must NOT be referenced anywhere else in the code (it does not affect
-  the animation — it is metadata for a later voiceover).
+  This is the spoken explanation, distinct from the short on-screen text.
+- KEEP IT SHORT: ONE short sentence per section (about 12-18 words), and about 80
+  words for the whole script. The narration is read aloud as a voiceover that must
+  FIT the ~30-35s film at a natural speaking pace — a long script overruns the
+  video and gets cut off. Teach the idea in a tight sentence; do not write a
+  paragraph. It must be a plain list of string literals and must NOT be referenced
+  anywhere else in the code (it is metadata for a later voiceover).
 
 FINAL CHECK — before answering, walk through the code section by section: what is
 on screen after each self.play(...)? Is any text touching other text or the frame
@@ -232,8 +235,8 @@ def build_freeform_prompt() -> str:
 
 # Must match the newest "freeform" entry in docs/prompt-log.md. When _PROMPT changes,
 # log the new version (with its intent) first, then bump both the tag and the sha.
-FREEFORM_PROMPT_VERSION = "freeform-v5"
-FREEFORM_PROMPT_SHA = "185df819bc7d"
+FREEFORM_PROMPT_VERSION = "freeform-v6"
+FREEFORM_PROMPT_SHA = "d427f96fa7b6"
 
 
 def freeform_prompt_version() -> str:
