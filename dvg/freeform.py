@@ -348,15 +348,18 @@ def overlap_report(media_dir: Path) -> dict | None:
     return read_report(Path(media_dir).parent / "overlaps.json")
 
 
-def api_check(code: str, logger=None, attempt: int | None = None) -> None:
+def api_check(code: str, logger=None, attempt: int | None = None,
+              scene: int | None = None) -> None:
     """Static ManimCE API check (dvg/kb/check.py) before anything runs. Logs all
     findings; raises a repairable FreeformError listing EVERY certain crash at once
-    (a runtime crash would only show the first, possibly minutes into a render)."""
+    (a runtime crash would only show the first, possibly minutes into a render).
+    `scene` (1-based), when given, tags the logged findings with their scene/section
+    (fan-out / sectioned modes)."""
     from .kb.check import CHECKER_VERSION, as_dicts, check_code
 
     findings = check_code(code)
     if logger is not None:
-        logger.record_api_check(as_dicts(findings), CHECKER_VERSION, attempt)
+        logger.record_api_check(as_dicts(findings), CHECKER_VERSION, attempt, scene)
     errors = [f for f in findings if f.severity == "error"]
     if errors:
         lines = "\n".join(f"- {f}" for f in errors)
