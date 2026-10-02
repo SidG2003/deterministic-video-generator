@@ -76,7 +76,7 @@ class Generated(Scene):
         subtitle = Text("one clear sentence about it", font=FONT, font_size=28, color=MUTED)
         header = VGroup(title, subtitle).arrange(DOWN, buff=0.3)
         self.play(FadeIn(header, shift=UP * 0.2), run_time=0.8)  # fade, never Write
-        self.wait(0.6)
+        self.wait(1.8)  # hold so the viewer can read it
         self.play(*[FadeOut(m) for m in self.mobjects], run_time=0.4)
 
     def mechanism(self):
@@ -89,13 +89,13 @@ class Generated(Scene):
         label_b = Text("output", font=FONT, font_size=26, color=INK).next_to(box_b, DOWN, buff=0.3)
         self.play(FadeIn(heading), Create(boxes), run_time=0.8)
         self.play(GrowArrow(arrow), FadeIn(label_a), FadeIn(label_b), run_time=0.6)
-        self.wait(0.6)
+        self.wait(1.8)  # hold so the viewer can read it
         self.play(*[FadeOut(m) for m in self.mobjects], run_time=0.4)
 
     def closing(self):
         takeaway = Text("The takeaway, in a few words.", font=FONT, font_size=34, color=ACCENT)
         self.play(FadeIn(takeaway, shift=UP * 0.2), run_time=0.8)
-        self.wait(0.6)
+        self.wait(1.8)  # hold so the viewer can read it
         self.play(*[FadeOut(m) for m in self.mobjects], run_time=0.4)'''
 
 _FINAL_CHECK = """\
@@ -129,8 +129,8 @@ def build_sectioned_prompt() -> str:
     ])
 
 
-SECTIONED_PROMPT_VERSION = "sectioned-v2"
-SECTIONED_PROMPT_SHA = "fc51bd5bbddb"
+SECTIONED_PROMPT_VERSION = "sectioned-v3"
+SECTIONED_PROMPT_SHA = "a2f127785088"
 
 
 def sectioned_prompt_version() -> str:

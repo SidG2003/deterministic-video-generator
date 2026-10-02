@@ -92,7 +92,8 @@ STRUCTURE, COVERAGE & PACING
   own section, so the viewer understands the whole idea, not just a teaser.
 - Open with a title moment; build one idea per section with a clear visual metaphor.
   Keep on-screen text short and purposeful — the narration carries the explanation.
-- PACING: holds/waits short (~0.3-0.8s), snappy run_times, no dead time.
+- PACING: let each beat breathe — hold a finished beat ~1.5-2s so on-screen text can be
+  read, use calm run_times, and never flash text or rush the viewer (no dead time either).
 
 <<LENGTH_RULE>>
 
@@ -201,9 +202,9 @@ class Generated(Scene):
         title = Text("The Idea", font="Avenir Next", font_size=48, color=INK, weight=BOLD)
         subtitle = Text("one clear sentence about it", font="Avenir Next", font_size=28, color="#6b7280")
         header = VGroup(title, subtitle).arrange(DOWN, buff=0.3)
-        self.play(FadeIn(header, shift=UP * 0.2), run_time=0.8)
-        self.wait(0.6)
-        self.play(FadeOut(header), run_time=0.4)  # clean stage for the next section
+        self.play(FadeIn(header, shift=UP * 0.2), run_time=1.0)
+        self.wait(1.8)  # hold so the viewer can read it
+        self.play(FadeOut(header), run_time=0.5)  # clean stage for the next section
 
         # --- section 2: one visual, labels placed relative to it
         heading = Text("How it works", font="Avenir Next", font_size=40, color=INK).to_edge(UP, buff=0.5)
@@ -216,9 +217,9 @@ class Generated(Scene):
         self.play(FadeIn(heading), Create(boxes), run_time=0.8)  # Create is fine for shapes
         self.play(GrowArrow(arrow), FadeIn(label_a), FadeIn(label_b), run_time=0.6)
         new_label = Text("result", font="Avenir Next", font_size=26, color=INK).move_to(label_b)
-        self.play(ReplacementTransform(label_b, new_label), run_time=0.5)  # replace, don't stack
-        self.wait(0.6)
-        self.play(*[FadeOut(m) for m in self.mobjects], run_time=0.4)  # end of section
+        self.play(ReplacementTransform(label_b, new_label), run_time=0.6)  # replace, don't stack
+        self.wait(1.8)  # let it land
+        self.play(*[FadeOut(m) for m in self.mobjects], run_time=0.5)  # end of section
 """
 
 
@@ -231,8 +232,8 @@ def build_freeform_prompt() -> str:
 
 # Must match the newest "freeform" entry in docs/prompt-log.md. When _PROMPT changes,
 # log the new version (with its intent) first, then bump both the tag and the sha.
-FREEFORM_PROMPT_VERSION = "freeform-v4"
-FREEFORM_PROMPT_SHA = "b5277c427607"
+FREEFORM_PROMPT_VERSION = "freeform-v5"
+FREEFORM_PROMPT_SHA = "185df819bc7d"
 
 
 def freeform_prompt_version() -> str:

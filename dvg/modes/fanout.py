@@ -159,8 +159,8 @@ def build_scene_prompt() -> str:
     return head + "\n\n" + tail
 
 
-SCENE_PROMPT_VERSION = "fanout-scene-v2"
-SCENE_PROMPT_SHA = "991e4ed082c5"
+SCENE_PROMPT_VERSION = "fanout-scene-v3"
+SCENE_PROMPT_SHA = "2bce4219d86c"
 
 
 def scene_prompt_version() -> str:

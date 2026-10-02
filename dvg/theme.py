@@ -95,8 +95,10 @@ THEME & STYLE — do NOT make it look like a default Manim video (as important a
   buffers) and clear old text before new text enters the same area."""
 
 LENGTH_RULE = """\
-LENGTH — the whole film should run about 30-35 seconds
-- This is a SHORT film. Aim for ~30-35s total: keep holds short (~0.3-0.8s), run_times
-  snappy, and cut any dead time. Cover the idea well, but tightly — do not pad.
-- Don't stop short either: use enough sections to actually land the idea (usually about
-  5-7), so the film reaches ~30s rather than ending in 10-15s."""
+LENGTH & PACING — the whole film should run about 30-35 seconds
+- Aim for ~30-35s total, and prefer the upper end: slightly long is better than rushed.
+- Let each idea LAND. After a beat finishes, hold it long enough to actually read and
+  absorb (about 1.5-2s), and use calm, unhurried run_times. Do not race through scenes
+  or flash text — the viewer needs time on each one.
+- Reach the target by covering the idea across enough sections (usually about 5-7) with
+  these relaxed holds — not by padding with dead time, and not by cramming."""
