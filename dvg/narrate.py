@@ -54,10 +54,11 @@ def _probe_duration(path: Path) -> float:
 
 
 def synthesize_line(text: str, out_path: Path, voice: str | None = None,
-                    backend: str = "say") -> float:
-    """Synthesise one narration line to `out_path`; return its duration in seconds.
-    `backend` selects the TTS provider ("say" = local macOS, "firefly" = Adobe
-    Firefly 3p ElevenLabs)."""
+                    backend: str = "say") -> dict:
+    """Synthesise one narration line to `out_path`; return a dict with at least
+    {seconds, chars, model, voice}. `backend` selects the TTS provider ("say" =
+    local macOS, "firefly" = Adobe Firefly 3p ElevenLabs). TTS is not token-billed,
+    so `chars` (what ElevenLabs charges on) is the usage measure recorded."""
     if backend == "say":
         return _say_line(text, out_path, voice)
     if backend == "firefly":
@@ -65,7 +66,7 @@ def synthesize_line(text: str, out_path: Path, voice: str | None = None,
     raise NarrationError(f"unknown TTS backend {backend!r} (use 'say' or 'firefly')")
 
 
-def _say_line(text: str, out_path: Path, voice: str | None) -> float:
+def _say_line(text: str, out_path: Path, voice: str | None) -> dict:
     if shutil.which("say") is None:
         raise NarrationError("macOS `say` not found — this backend needs macOS")
     cmd = ["say", "-o", str(out_path)]
@@ -75,10 +76,11 @@ def _say_line(text: str, out_path: Path, voice: str | None) -> float:
     proc = subprocess.run(cmd, capture_output=True, text=True)
     if proc.returncode != 0 or not out_path.exists():
         raise NarrationError(f"`say` failed: {(proc.stderr or '').strip()[-300:]}")
-    return _probe_duration(out_path)
+    return {"seconds": _probe_duration(out_path), "chars": len(text),
+            "model": "macos-say", "voice": voice}
 
 
-def _firefly_line(text: str, out_path: Path, voice: str | None, timeout: int = 180) -> float:
+def _firefly_line(text: str, out_path: Path, voice: str | None, timeout: int = 180) -> dict:
     """Firefly 3p-audio ElevenLabs TTS: POST the line, poll the async job until it
     completes, download the resulting WAV. Credentials come from the environment
     (loaded from .env) and are never logged."""
@@ -115,6 +117,13 @@ def _firefly_line(text: str, out_path: Path, voice: str | None, timeout: int = 1
 
     resp, posted = _get(endpoint, json.dumps(body).encode())
     retry = int(resp.headers.get("Retry-After") or 5)
+    # No token/credit COUNT is returned (TTS is not token-billed); only a quota
+    # status + credit type. Record what is available for the log.
+    import re
+    consumption = resp.headers.get("x-access-consumption-status")
+    credit_match = re.search(r'gc_credit_type="([^"]+)"',
+                             resp.headers.get("x-access-user-context", "") or "")
+    credit_type = credit_match.group(1) if credit_match else None
     poll = (resp.headers.get("X-Override-Status-Link")
             or posted.get("links", {}).get("result", {}).get("href"))
     if not poll:
@@ -139,7 +148,11 @@ def _firefly_line(text: str, out_path: Path, voice: str | None, timeout: int = 1
     if not url:
         raise NarrationError("Firefly result had no audio URL")
     out_path.write_bytes(urllib.request.urlopen(url, timeout=120).read())
-    return _probe_duration(out_path)
+    return {"seconds": _probe_duration(out_path), "chars": len(text),
+            "model": result.get("modelId", "elevenlabs"),
+            "model_version": result.get("modelVersion", _FIREFLY_MODEL),
+            "voice_id": voice, "session_id": result.get("generationSessionId"),
+            "consumption_status": consumption, "credit_type": credit_type}
 
 
 def build_voice_track(lines: list[str], out_wav: Path, voice: str | None = None,
@@ -156,16 +169,32 @@ def build_voice_track(lines: list[str], out_wav: Path, voice: str | None = None,
     tmp = Path(tempfile.mkdtemp(prefix="dvg_tts_"))
     track = AudioSegment.silent(duration=0)
     gap = AudioSegment.silent(duration=gap_ms)
-    line_seconds = []
+    results: list[dict] = []
     for i, line in enumerate(spoken):
         clip_path = tmp / f"line_{i:03d}{suffix}"
-        line_seconds.append(synthesize_line(line, clip_path, voice, backend))
+        results.append(synthesize_line(line, clip_path, voice, backend))
         track += AudioSegment.from_file(clip_path)
         if i < len(spoken) - 1:
             track += gap
     track.export(out_wav, format="wav")
-    return {"provider": backend, "voice": voice, "lines": len(spoken),
-            "line_seconds": line_seconds, "audio_seconds": _probe_duration(out_wav)}
+    first = results[0] if results else {}
+    info = {
+        "provider": backend,
+        "model": first.get("model"),            # e.g. "elevenlabs" / "macos-say"
+        "model_version": first.get("model_version"),  # e.g. "eleven_multilingual_v2"
+        "voice": first.get("voice_id") or voice,
+        "lines": len(spoken),
+        "characters": sum(r["chars"] for r in results),  # TTS is billed per character, not tokens
+        "chars_per_line": [r["chars"] for r in results],
+        "line_seconds": [r["seconds"] for r in results],
+        "audio_seconds": _probe_duration(out_wav),
+    }
+    # Firefly only reports a quota status + credit type, never a consumed count.
+    if first.get("consumption_status"):
+        info["consumption_status"] = first["consumption_status"]
+        info["credit_type"] = first.get("credit_type")
+        info["session_ids"] = [r.get("session_id") for r in results]
+    return info
 
 
 def mux(video_in: Path, audio_wav: Path, video_out: Path) -> None:
@@ -213,11 +242,16 @@ def apply_if_requested(args, logger) -> None:
         out = logger.dir / "video_narrated.mp4"
         info = narrate(video, lines, out, voice=getattr(args, "voice", None), backend=backend)
         logger.artifact("narration_audio.json", json.dumps(info, indent=2) + "\n")
-        # Compact summary into meta.json for KPI reading (backend + generation time).
+        # Compact summary into meta.json for KPI reading (backend, model, usage, time).
         logger.narration = {
-            "provider": info["provider"], "voice": info.get("voice"),
-            "lines": info["lines"], "tts_seconds": info["tts_seconds"],
-            "audio_seconds": info["audio_seconds"], "video_seconds": info["video_seconds"],
+            "provider": info["provider"], "model": info.get("model"),
+            "model_version": info.get("model_version"), "voice": info.get("voice"),
+            "lines": info["lines"], "characters": info.get("characters"),
+            "tts_seconds": info["tts_seconds"], "audio_seconds": info["audio_seconds"],
+            "video_seconds": info["video_seconds"],
+            **({"consumption_status": info["consumption_status"],
+                "credit_type": info.get("credit_type")}
+               if "consumption_status" in info else {}),
         }
         print(f"Narrated video ({backend}): {out}  ({info['lines']} lines, "
               f"{info['audio_seconds']}s of audio in {info['tts_seconds']}s over "
