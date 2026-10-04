@@ -91,6 +91,7 @@ class RunLogger:
         self.system_prompt_sha256: str | None = None
         self.overlaps: dict | None = None
         self.api_checks: list[dict] = []
+        self.narration: dict | None = None  # set by dvg.narrate when --narrate is used
         self.render_units: list[dict] | None = None
         self.render_strategy: str | None = None
         self.workers: int | None = None
@@ -254,6 +255,8 @@ class RunLogger:
             "video": self.video,
             "error": error,
         }
+        if self.narration is not None:
+            meta["narration"] = self.narration
         if self.render_units is not None:
             meta["render_units"] = self.render_units
             meta["render_strategy"] = self.render_strategy

@@ -185,8 +185,12 @@ def narrate(video_in: str | Path, lines: list[str], video_out: str | Path,
     video_in, video_out = Path(video_in), Path(video_out)
     tmp = Path(tempfile.mkdtemp(prefix="dvg_narr_"))
     wav = tmp / "voice.wav"
+    t0 = time.perf_counter()
     info = build_voice_track(lines, wav, voice, backend)
+    info["tts_seconds"] = round(time.perf_counter() - t0, 2)  # wall time to synthesize the voice
+    t1 = time.perf_counter()
     mux(video_in, wav, video_out)
+    info["mux_seconds"] = round(time.perf_counter() - t1, 2)
     info["video_out"] = str(video_out)
     info["video_seconds"] = _probe_duration(video_out)
     return info
@@ -209,7 +213,14 @@ def apply_if_requested(args, logger) -> None:
         out = logger.dir / "video_narrated.mp4"
         info = narrate(video, lines, out, voice=getattr(args, "voice", None), backend=backend)
         logger.artifact("narration_audio.json", json.dumps(info, indent=2) + "\n")
+        # Compact summary into meta.json for KPI reading (backend + generation time).
+        logger.narration = {
+            "provider": info["provider"], "voice": info.get("voice"),
+            "lines": info["lines"], "tts_seconds": info["tts_seconds"],
+            "audio_seconds": info["audio_seconds"], "video_seconds": info["video_seconds"],
+        }
         print(f"Narrated video ({backend}): {out}  ({info['lines']} lines, "
-              f"{info['audio_seconds']}s of audio over {info['video_seconds']}s video)")
+              f"{info['audio_seconds']}s of audio in {info['tts_seconds']}s over "
+              f"{info['video_seconds']}s video)")
     except NarrationError as exc:
         print(f"narration skipped: {exc}")
