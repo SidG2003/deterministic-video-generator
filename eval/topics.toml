@@ -91,3 +91,10 @@ name = "llms"
 prompt = "I want to understand how LLMs work in a simple way"
 depth = "standard"
 stresses = ["abstract-concepts", "diagram", "short-prompt"]
+
+[[topic]]
+id = "t12"
+name = "pendulum"
+prompt = "Explain the time period and frequency of a pendulum, explaining the relation with respect to length of pendulum, mass of pendulum and gravity."
+depth = "standard"
+stresses = ["formulas", "controlled-variables", "physical-mechanism", "oscillation"]
