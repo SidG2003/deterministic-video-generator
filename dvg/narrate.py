@@ -54,15 +54,16 @@ def _probe_duration(path: Path) -> float:
 
 
 def synthesize_line(text: str, out_path: Path, voice: str | None = None,
-                    backend: str = "say") -> dict:
+                    backend: str = "say", speed: float = 1.0) -> dict:
     """Synthesise one narration line to `out_path`; return a dict with at least
     {seconds, chars, model, voice}. `backend` selects the TTS provider ("say" =
-    local macOS, "firefly" = Adobe Firefly 3p ElevenLabs). TTS is not token-billed,
-    so `chars` (what ElevenLabs charges on) is the usage measure recorded."""
+    local macOS, "firefly" = Adobe Firefly 3p ElevenLabs). `speed` is the ElevenLabs
+    speaking-rate multiplier (0.7-1.2; 1.0 = default), ignored by `say`. TTS is not
+    token-billed, so `chars` (what ElevenLabs charges on) is the usage recorded."""
     if backend == "say":
         return _say_line(text, out_path, voice)
     if backend == "firefly":
-        return _firefly_line(text, out_path, voice)
+        return _firefly_line(text, out_path, voice, speed=speed)
     raise NarrationError(f"unknown TTS backend {backend!r} (use 'say' or 'firefly')")
 
 
@@ -80,7 +81,8 @@ def _say_line(text: str, out_path: Path, voice: str | None) -> dict:
             "model": "macos-say", "voice": voice}
 
 
-def _firefly_line(text: str, out_path: Path, voice: str | None, timeout: int = 180) -> dict:
+def _firefly_line(text: str, out_path: Path, voice: str | None, timeout: int = 180,
+                  speed: float = 1.0) -> dict:
     """Firefly 3p-audio ElevenLabs TTS: POST the line, poll the async job until it
     completes, download the resulting WAV. Credentials come from the environment
     (loaded from .env) and are never logged."""
@@ -97,7 +99,8 @@ def _firefly_line(text: str, out_path: Path, voice: str | None, timeout: int = 1
         "modelId": "elevenlabs", "modelVersion": _FIREFLY_MODEL,
         "prompt": f"<speak><p>{escape(text)}</p></speak>", "seeds": [1], "voiceId": voice,
         "modelSpecificPayload": {"voice_settings": {"use_speaker_boost": True,
-            "similarity_boost": 0.75, "style": 0, "speed": 1, "stability": 0.5}},
+            "similarity_boost": 0.75, "style": 0,
+            "speed": max(0.7, min(1.2, float(speed))), "stability": 0.5}},
         "output": {"storeInputs": True, "includeAlignment": "none",
                    "audioConfig": [{"codec": "pcm", "sampleRateHz": 48000}]},
         "generationMetadata": {"module": "textToSpeech", "assetName": text[:40]},
@@ -156,7 +159,8 @@ def _firefly_line(text: str, out_path: Path, voice: str | None, timeout: int = 1
 
 
 def build_voice_track(lines: list[str], out_wav: Path, voice: str | None = None,
-                      backend: str = "say", gap_ms: int = _GAP_MS) -> dict:
+                      backend: str = "say", gap_ms: int = _GAP_MS,
+                      speed: float = 1.0) -> dict:
     """Synthesise every line with `backend` and join them (with a short pause) into
     one wav. Returns {provider, voice, lines, line_seconds, audio_seconds}."""
     from pydub import AudioSegment
@@ -172,7 +176,7 @@ def build_voice_track(lines: list[str], out_wav: Path, voice: str | None = None,
     results: list[dict] = []
     for i, line in enumerate(spoken):
         clip_path = tmp / f"line_{i:03d}{suffix}"
-        results.append(synthesize_line(line, clip_path, voice, backend))
+        results.append(synthesize_line(line, clip_path, voice, backend, speed))
         track += AudioSegment.from_file(clip_path)
         if i < len(spoken) - 1:
             track += gap
@@ -208,14 +212,15 @@ def mux(video_in: Path, audio_wav: Path, video_out: Path) -> None:
 
 
 def narrate(video_in: str | Path, lines: list[str], video_out: str | Path,
-            voice: str | None = None, backend: str = "say") -> dict:
+            voice: str | None = None, backend: str = "say", speed: float = 1.0) -> dict:
     """Synthesise `lines` with `backend`, mux over `video_in`, write `video_out`.
     Returns the voice-track info plus the output path and final duration."""
     video_in, video_out = Path(video_in), Path(video_out)
     tmp = Path(tempfile.mkdtemp(prefix="dvg_narr_"))
     wav = tmp / "voice.wav"
     t0 = time.perf_counter()
-    info = build_voice_track(lines, wav, voice, backend)
+    info = build_voice_track(lines, wav, voice, backend, speed=speed)
+    info["speed"] = max(0.7, min(1.2, float(speed)))
     info["tts_seconds"] = round(time.perf_counter() - t0, 2)  # wall time to synthesize the voice
     t1 = time.perf_counter()
     mux(video_in, wav, video_out)

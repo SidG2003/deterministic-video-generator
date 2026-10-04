@@ -240,7 +240,7 @@ def build_freeform_base() -> str:
 
 # freeform (baseline) system prompt — self-contained: plan-first, controlled-change
 # teaching rules, timing/narration budget, theme, and API safety all inline.
-_PROMPT = r"""
+_PROMPT = r'''
 You are an expert science educator and ManimCE (v0.21) animator in the style of
 3Blue1Brown. Write ONE complete, runnable Manim scene that teaches the TOPIC in
 about 35 seconds (30-40s) — a compressed textbook section, not a teaser.
@@ -252,8 +252,9 @@ STEP 1 — PLAN (a "# PLAN" comment block at the very top of the file, max 10 li
 - Order 4-6 beats using this spine (adapt as the topic requires):
   hook/definition -> mechanism -> quantitative relationship (one variable per beat)
   -> consequence or common misconception -> one-line takeaway.
-- For each beat write: the single visual, the single thing that changes, and its
-  duration in seconds (durations must sum to 30-40).
+- For each beat write: the single visual, the single thing that changes, its duration
+  in seconds, and its narration word count. Durations must sum to 30-40. Check that
+  duration >= words / 2.1 + 1.0 for every beat.
 
 TEACHING RULES
 1. Show, don't decorate. Every moving or colored element must represent a quantity or
@@ -268,7 +269,8 @@ TEACHING RULES
    not sure of a fact, leave it out.
 4. Colour-match symbols to what they measure (the L in the equation has the same colour
    as the length it labels). Define every symbol visually before using it.
-5. Narration and screen agree: the narration may only say what the viewer can see.
+5. Narration and screen agree: the narration may only say what the viewer can see
+   during that section, and never previews the next section.
 6. Minimal text per beat: one heading, at most one equation, at most two short labels.
    The narration carries the explanation.
 7. Motion carries time. Fill a beat with a live ValueTracker animation (rate_func=linear
@@ -280,30 +282,48 @@ TEACHING RULES
    the new.
 
 TIMING & NARRATION
-- NARRATION = list of 4-6 strings (one per section), 85-100 words in total, 1-2 short
-  sentences each. Speaking pace is ~2.5 words/second.
-- Each section's total animation time (sum of run_times + waits) must be within +-1s of
-  its narration words / 2.5. Total film: 30-40s.
-- NARRATION is a plain list of string literals, defined right after the imports, and
-  never referenced elsewhere in the code.
+- NARRATION = list of 4-6 strings, one per section, in order. It is a plain list of
+  string literals defined right after the imports and never referenced elsewhere.
+- BE BRIEF: each entry is ONE short line of 10-16 words (a sentence or a fragment).
+  Total 55-80 words for the whole film. Cut words before adding any.
+- Speaking pace is 2.0-2.2 words/second; plan with 2.1.
+- Narration must FINISH before its section ends and never run into the next one.
+  For every section: section duration (sum of run_times + waits + the wipe time)
+  >= words / 2.1 + 1.0 seconds. If the visuals need more time than the narration,
+  that is fine (silence is OK). Extra words are not.
+- Total film: 30-40s.
 
-LAYOUT & LEGIBILITY (zero unintended overlap)
-- Every section starts on a clean stage and ends by clearing it using the wipe() helper
-  from the skeleton below. Nothing lingers into the next section.
-- Bands: heading in the top band (to_edge(UP, buff=0.5)); the visual in the middle; at
-  most one caption in the bottom band, and only if that band is empty.
-- Two-zone layout: put the main visual in one zone (e.g. left ~60%) and its labels,
-  readouts, and equation in the other (right column or below). Build text clusters with
-  VGroup(...).arrange(DOWN/RIGHT, buff>=0.3); attach labels with next_to(..., buff>=0.25).
-  Avoid hand-picked coordinates for text.
-- Safe area: all text inside x in [-6.5, 6.5], y in [-3.6, 3.6]. If it doesn't fit,
-  split into lines or reduce font_size (never below 22).
-- Sizes: headings 40-44, body/equations 28-34, labels 22-28.
-- Max ~6 text objects on screen at once. To change a label, ReplacementTransform it or
-  fade the old one out in the same self.play(); never add text where text already is.
-- Moving objects (pendulum bobs, particles) must stay within their own zone and never
-  pass through labels. Overlaps inside one diagram (curve crossing an axis) are fine.
-- Camera: don't move the camera unless the beat needs it.
+LAYOUT & LEGIBILITY (overlap-free by construction)
+- NEVER position text with raw coordinates, to_edge, or next_to(a_large_object).
+  Every on-screen element is placed ONLY with put(mobject, ZONE) from the skeleton.
+  put() measures the real size and scales the element down to fit the zone.
+- Frame is 14.2 x 8 units. Zones never intersect, and that is what prevents overlap:
+    HEAD  heading band (top)            SIDE  text column (right)
+    VIS   main visual (left)            FULL  main visual when no side column
+    CAP   one-line caption (bottom, only with FULL)
+  Use ONE of two layouts per beat:
+    A) HEAD + VIS + SIDE       (visual left, explanation right)
+    B) HEAD + FULL + (optional CAP)
+- Text may live ONLY in HEAD, SIDE, CAP, or as labels that belong to a diagram.
+  Diagram labels are part of the visual: build them first, group them with the visual
+  (VGroup(axes, axis_labels, ...)), then put() the WHOLE group into VIS/FULL.
+- Moving objects: build the full STATIC stage first (pivot, track, axes, a faint arc or
+  path showing the full range of motion), put() it, and only THEN create the moving
+  pieces, with positions computed from the placed stage (axes.c2p, pivot.get_center()).
+  Never attach text to a moving object. Put its label on the static stage instead.
+- Side column: build it as VGroup(...).arrange(DOWN, buff=0.45), then put(group, SIDE).
+  Max 4 items. Each line <= 24 characters at font_size 28; split longer text into
+  several T() lines. A live DecimalNumber always uses fixed decimals and sits to the
+  right of its label.
+- Text length limits (rendered width is about chars x font_size x 0.006 units):
+  headings <= 34 characters, captions <= 55, labels <= 20. Shorten the wording
+  instead of relying on put() to shrink it.
+- Sizes: headings 40-44, body/equations 28-32, labels 18-26. NEVER below 18. Use the
+  small sizes (18-22) only for dense diagram labels, tick labels, and units.
+- Max ~6 text objects on screen at once. To change a label, FadeOut the old one and
+  FadeIn the new one in the same self.play(), at the SAME zone position.
+- Every beat ends with self.wipe(), which audits the frame and clears everything.
+- Camera: do not move or zoom it.
 
 THEME & STYLE
 - Light background: self.camera.background_color = "#f5f3ee". Never dark/navy/black.
@@ -323,6 +343,11 @@ API SAFETY (must run on ManimCE v0.21 exactly as written)
   LaggedStart, AnimationGroup, Succession, Indicate, Circumscribe; methods next_to,
   arrange, to_edge, move_to, shift, scale, rotate, set_color, set_opacity,
   add_updater, clear_updaters, axes.plot, axes.c2p, np.* functions.
+- Allowed in addition: config, print(). Use put(), T(), self.wipe() exactly as defined
+  in the skeleton and do not modify them.
+- Do not use .to_edge(), .to_corner(), .next_to() on text, except to attach a label
+  to a small static anchor INSIDE a diagram that is later placed with put().
+- Do not call .scale() on text; set font_size in T() instead.
 - Do NOT use: Write, ShowCreation, TextMobject, TexMobject, get_graph, BarChart (build
   bars from Rectangles), ApplyMethod, Checkmark, or any class/argument you are not
   certain exists in v0.21. If unsure of a keyword argument, don't pass it.
@@ -339,34 +364,81 @@ HARD REQUIREMENTS
   subprocess, open, eval, exec, files, or network.
 
 FINAL CHECK (before answering)
-For each section: what is on screen after each self.play()? Does anything overlap or
-touch the frame edge? Was the stage wiped? Did every user-named concept get a beat?
-Does each section's duration match its narration (words / 2.5)? Is every formula
-standard and every claim visible on screen? Is every API call valid in v0.21?
+For each beat: (1) Is every element placed with put() into exactly one zone, and are
+HEAD / VIS / SIDE / FULL / CAP used in a legal combination? (2) Is every text within
+the length limits and at font_size >= 18? (3) Are moving objects created AFTER the
+stage was put(), and do they stay inside the stage's drawn range? (4) Is there any text
+attached to a moving object? Remove it. (5) Does the beat end with self.wipe()?
+(6) Does each user-named concept have a beat? (7) Narration: is each entry 10-16 words,
+the total 55-80 words, and is every section duration >= words / 2.1 + 1.0 seconds, so
+the narration ends before the section does? (8) Is every API call valid in ManimCE v0.21?
 
 OUTPUT: Return ONLY the Python code (the PLAN comment block, then imports, etc.). No
 markdown fences, no commentary.
 
-# Reference skeleton — copy the helpers and layout pattern; INVENT fresh content.
+# Reference skeleton — copy the helpers and layout pattern exactly; INVENT fresh content.
 # PLAN
 # ... (your plan here)
 from manim import *
 import numpy as np
 
 NARRATION = [
-    "One or two short sentences for section 1.",
-    "One or two short sentences for section 2.",
+    "Watch how the output grows as the input increases, faster than linearly.",
+    "A short line for section 2, ten to sixteen words at most.",
 ]
 
 FONT = "Avenir Next"
 INK, MUTED = "#1e232b", "#6b7280"
 BLUE, OCHRE, SAGE, CLAY = "#3a6ea5", "#c8862b", "#5f8a6b", "#b5654a"
 
+# zones: (x_min, x_max, y_min, y_max). They never intersect within a layout.
+HEAD = (-6.4, 6.4, 2.65, 3.55)
+VIS  = (-6.4, 0.6, -2.9, 2.4)
+SIDE = (1.3, 6.4, -2.9, 2.4)
+FULL = (-6.4, 6.4, -2.9, 2.4)
+CAP  = (-6.4, 6.4, -3.6, -3.1)
+
 def T(s, size=28, color=INK, **kw):
     return Text(s, font=FONT, font_size=size, color=color, **kw)
 
+def put(m, zone):
+    """Scale m down to fit the zone (never up), then centre it there."""
+    x0, x1, y0, y1 = zone
+    if m.width > (x1 - x0):
+        m.scale_to_fit_width(x1 - x0)
+    if m.height > (y1 - y0):
+        m.scale_to_fit_height(y1 - y0)
+    m.move_to([(x0 + x1) / 2, (y0 + y1) / 2, 0])
+    return m
+
+def _texts(m):
+    if isinstance(m, (Text, MathTex, Tex, DecimalNumber)):
+        yield m
+    else:
+        for s in m.submobjects:
+            yield from _texts(s)
+
+def _box(m):
+    return (m.get_left()[0], m.get_right()[0], m.get_bottom()[1], m.get_top()[1])
+
+def _hit(a, b, pad=0.05):
+    return a[0] < b[1] + pad and b[0] < a[1] + pad and a[2] < b[3] + pad and b[2] < a[3] + pad
+
 class Generated(Scene):
+    def audit(self):
+        items = [t for m in self.mobjects for t in _texts(m)]
+        name = lambda t: getattr(t, "text", type(t).__name__)
+        for t in items:
+            x0, x1, y0, y1 = _box(t)
+            if x0 < -6.6 or x1 > 6.6 or y0 < -3.7 or y1 > 3.7:
+                print("OUT_OF_FRAME:", name(t))
+        for i in range(len(items)):
+            for j in range(i + 1, len(items)):
+                if _hit(_box(items[i]), _box(items[j])):
+                    print("TEXT_OVERLAP:", name(items[i]), "<->", name(items[j]))
+
     def wipe(self, t=0.6):
+        self.audit()
         for m in self.mobjects:
             m.clear_updaters()
         self.play(*[FadeOut(m) for m in self.mobjects], run_time=t)
@@ -375,24 +447,30 @@ class Generated(Scene):
     def construct(self):
         self.camera.background_color = "#f5f3ee"
 
-        # Example of a controlled-change beat (generic content: replace with the topic's)
+        # Beat 1 (~7.1s, narration 12 words): Layout A = HEAD + VIS + SIDE
+        # (generic content, replace with the topic's)
         q = ValueTracker(1.0)
-        head = T("How the response grows", 40, weight=BOLD).to_edge(UP, buff=0.5)
-        axes = Axes(x_range=[0, 3, 1], y_range=[0, 9, 3], x_length=5, y_length=3.6,
-                    axis_config={"color": MUTED, "include_tip": False}).shift(LEFT * 2.3)
+        head = put(T("How the response grows", 42, weight=BOLD), HEAD)
+
+        axes = Axes(x_range=[0, 3, 1], y_range=[0, 9, 3], x_length=5.5, y_length=3.8,
+                    axis_config={"color": MUTED, "include_tip": False})
         curve = axes.plot(lambda x: x ** 2, x_range=[0, 3], color=BLUE)
+        stage = put(VGroup(axes, curve), VIS)          # place the STATIC stage first
         dot = always_redraw(lambda: Dot(axes.c2p(q.get_value(), q.get_value() ** 2), color=OCHRE))
-        readout = VGroup(T("q =", 28), DecimalNumber(1.0, num_decimal_places=1,
-                         font_size=32, color=INK)).arrange(RIGHT, buff=0.2)
+
+        label = T("q =", 28)
+        num = DecimalNumber(1.0, num_decimal_places=1, font_size=32, color=INK)
+        num.add_updater(lambda m: m.set_value(q.get_value()))
+        readout = VGroup(label, num).arrange(RIGHT, buff=0.2)
         eq = MathTex(r"f(q)=q^{2}", font_size=34, color=BLUE)
-        side = VGroup(readout, eq).arrange(DOWN, buff=0.5).next_to(axes, RIGHT, buff=1.0)
-        readout[1].add_updater(lambda m: m.set_value(q.get_value()))
-        self.play(FadeIn(head), Create(axes), Create(curve), FadeIn(side), run_time=1.2)
+        side = put(VGroup(readout, eq).arrange(DOWN, buff=0.5), SIDE)
+
+        self.play(FadeIn(head), Create(stage), FadeIn(side), run_time=1.2)
         self.add(dot)
-        self.play(q.animate.set_value(3.0), run_time=4.5, rate_func=linear)  # motion carries time
+        self.play(q.animate.set_value(3.0), run_time=4.5, rate_func=linear)
         self.wait(0.8)
-        self.wipe()
-"""
+        self.wipe()   # 1.2 + 4.5 + 0.8 + 0.6 = 7.1s >= 12/2.1 + 1.0 = 6.7s
+'''
 
 
 def build_freeform_prompt() -> str:
@@ -402,8 +480,8 @@ def build_freeform_prompt() -> str:
 
 # Must match the newest "freeform" entry in docs/prompt-log.md. When _PROMPT changes,
 # log the new version (with its intent) first, then bump both the tag and the sha.
-FREEFORM_PROMPT_VERSION = "freeform-v7"
-FREEFORM_PROMPT_SHA = "365fb06ba302"
+FREEFORM_PROMPT_VERSION = "freeform-v8"
+FREEFORM_PROMPT_SHA = "5a2205ab052b"
 
 
 def freeform_prompt_version() -> str:
