@@ -18,13 +18,16 @@ from dvg.freeform import FreeformError, scan_code
 GOOD = (FIXTURES / "sectioned_scene.py").read_text()
 
 
-def test_scan_allows_getattr_on_self_only():
-    # The contract's construct() dispatches via getattr(self, name)(); the scanner
-    # must permit that but still block getattr used as an escape.
+def test_scan_getattr_allows_benign_blocks_escapes():
+    # Allowed: getattr(self, name)() (contract dispatch) and getattr(obj, "literal")
+    # with a non-dunder string literal (the layout audit helper). Blocked: dunder
+    # attrs and dynamic (variable) attrs — the real escapes.
     scan_code(GOOD)  # contains `getattr(self, name)()` and must pass
-    for bad in ["getattr(np, '__dict__')", "getattr(obj, 'x')"]:
+    base = "from manim import *\nclass Generated(Scene):\n    def construct(self): pass\n"
+    scan_code(base + "x = getattr(t, 'text', 0)\n")  # benign literal attr -> allowed
+    for bad in ["getattr(np, '__dict__')", "getattr(obj, attr)"]:
         with pytest.raises(FreeformError):
-            scan_code("from manim import *\n" + bad)
+            scan_code(base + "x = " + bad + "\n")
 
 # A compact contract-following scene used as the base for the "bad" mutations.
 MINI = textwrap.dedent('''

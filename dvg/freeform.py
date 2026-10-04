@@ -519,13 +519,18 @@ def scan_code(code: str) -> None:
                 raise FreeformError(f"disallowed import from: {node.module}")
         elif isinstance(node, ast.Call):
             if isinstance(node.func, ast.Name) and node.func.id in _FORBIDDEN_CALLS:
-                # The section contract's construct() dispatches with
-                # `getattr(self, name)()`; allow getattr ONLY on self (benign
-                # dynamic attribute access on the scene). getattr on a module or
-                # builtin — the real escape (getattr(x, "__globals__")) — stays
-                # blocked, as do setattr/delattr/vars/globals/… .
-                if (node.func.id == "getattr" and node.args
-                        and isinstance(node.args[0], ast.Name) and node.args[0].id == "self"):
+                # Allow getattr in two benign forms: getattr(self, ...) (the section
+                # contract's construct() dispatch) and getattr(obj, "<literal>", ...)
+                # with a non-dunder string literal (e.g. getattr(t, "text", default)
+                # in the layout audit helper). The real escapes stay blocked:
+                # getattr(x, "__globals__"), getattr(x, variable), and
+                # setattr/delattr/vars/globals/… .
+                _args = node.args
+                _on_self = (_args and isinstance(_args[0], ast.Name) and _args[0].id == "self")
+                _a1 = _args[1] if len(_args) > 1 else None
+                _literal_attr = (isinstance(_a1, ast.Constant) and isinstance(_a1.value, str)
+                                 and not (_a1.value.startswith("__") and _a1.value.endswith("__")))
+                if node.func.id == "getattr" and (_on_self or _literal_attr):
                     pass
                 else:
                     raise FreeformError(f"disallowed call: {node.func.id}()")
