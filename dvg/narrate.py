@@ -202,11 +202,15 @@ def build_voice_track(lines: list[str], out_wav: Path, voice: str | None = None,
 
 
 def mux(video_in: Path, audio_wav: Path, video_out: Path) -> None:
-    """Add the voice track to the video (copy video stream, video is master)."""
+    """Add the voice track to the video with the VIDEO as master: the audio is
+    padded with trailing silence (apad) so a short narration never truncates the
+    video, and -shortest then clamps to the video length so a long narration is cut
+    to the video end rather than extending it. Video stream is copied."""
     proc = subprocess.run(
         ["ffmpeg", "-y", "-i", str(video_in), "-i", str(audio_wav),
-         "-map", "0:v:0", "-map", "1:a:0", "-c:v", "copy", "-c:a", "aac",
-         "-shortest", str(video_out)], capture_output=True, text=True)
+         "-filter_complex", "[1:a]apad[a]", "-map", "0:v:0", "-map", "[a]",
+         "-c:v", "copy", "-c:a", "aac", "-shortest", str(video_out)],
+        capture_output=True, text=True)
     if proc.returncode != 0 or not video_out.exists():
         raise NarrationError(f"muxing audio failed: {(proc.stderr or '').strip()[-400:]}")
 
