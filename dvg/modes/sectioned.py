@@ -24,7 +24,7 @@ from .. import llm
 from .. import parallel_render
 from .. import sections as sections_mod
 from ..freeform import (FreeformError, _FENCE, _QUALITY, api_check,
-                        build_freeform_prompt, build_freeform_user_message,
+                        build_freeform_base, build_freeform_user_message,
                         extract_narration, scan_code)
 from ..generate import _slug
 from ..parallel_render import ParallelRenderError
@@ -116,7 +116,7 @@ def build_sectioned_prompt() -> str:
     instruction is dropped (the harness seeds each section), the free-form
     construct example is replaced by a contract-following one, and the contract +
     heavy-scene guidance are added."""
-    base = build_freeform_prompt()
+    base = build_freeform_base()
     base = base.replace("- If you use randomness, seed it: random.seed(0).\n", "")
     head = base.split("FINAL CHECK —", 1)[0].rstrip()
     return "\n\n".join([

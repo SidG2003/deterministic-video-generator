@@ -26,7 +26,7 @@ from .. import parallel_render
 from .. import sections as sections_mod
 from .. import theme
 from ..fanout_preamble import build_preamble, font_names, palette_names
-from ..freeform import (_FENCE, FreeformError, api_check, build_freeform_prompt,
+from ..freeform import (_FENCE, FreeformError, api_check, build_freeform_base,
                         extract_narration, scan_code)
 from ..generate import DEPTH_HINTS, _slug
 from ..parallel_render import ParallelRenderError
@@ -154,7 +154,7 @@ OUTPUT
 def build_scene_prompt() -> str:
     """freeform-v3 guidance (minus manual seeding and its free-form example),
     plus the single-section output contract for one fan-out scene."""
-    base = build_freeform_prompt()
+    base = build_freeform_base()
     base = base.replace("- If you use randomness, seed it: random.seed(0).\n", "")
     head = base.split("FINAL CHECK —", 1)[0].rstrip()
     tail = _SCENE_TAIL.format(palette=", ".join(palette_names()), fonts=", ".join(font_names()))
