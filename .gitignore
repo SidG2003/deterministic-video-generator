@@ -6,3 +6,7 @@ runs/
 __pycache__/
 *.pyc
 .env
+
+# macOS + local reference media
+.DS_Store
+ref_fourier.mp4

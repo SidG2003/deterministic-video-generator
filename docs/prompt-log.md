@@ -34,7 +34,7 @@ When logging a new version: add the entry here, then bump the tag and sha consta
 ==============================================================================
 
 ## freeform — v8
-- Tag: `freeform-v8` · SHA-256 (12): `5a2205ab052b`
+- Tag: `freeform-v8` · SHA-256 (12): `0db760c73eba`
 - Date: 2026-10-05
 - Change: refine freeform-v7. (1) Overlap-free-by-construction layout: a fixed
   zone system (HEAD/VIS/SIDE/FULL/CAP that never intersect) with a put(mobject, zone)
@@ -66,7 +66,7 @@ STEP 1 — PLAN (a "# PLAN" comment block at the very top of the file, max 10 li
   -> consequence or common misconception -> one-line takeaway.
 - For each beat write: the single visual, the single thing that changes, its duration
   in seconds, and its narration word count. Durations must sum to 30-40. Check that
-  duration >= words / 2.1 + 1.0 for every beat.
+  duration >= words / 2.3 + 1.0 for every beat.
 
 TEACHING RULES
 1. Show, don't decorate. Every moving or colored element must represent a quantity or
@@ -98,10 +98,10 @@ TIMING & NARRATION
   string literals defined right after the imports and never referenced elsewhere.
 - BE BRIEF: each entry is ONE short line of 10-16 words (a sentence or a fragment).
   Total 55-80 words for the whole film. Cut words before adding any.
-- Speaking pace is 2.0-2.2 words/second; plan with 2.1.
+- Speaking pace is 2.2-2.4 words/second; plan with 2.3.
 - Narration must FINISH before its section ends and never run into the next one.
   For every section: section duration (sum of run_times + waits + the wipe time)
-  >= words / 2.1 + 1.0 seconds. If the visuals need more time than the narration,
+  >= words / 2.3 + 1.0 seconds. If the visuals need more time than the narration,
   that is fine (silence is OK). Extra words are not.
 - Total film: 30-40s.
 
@@ -182,7 +182,7 @@ the length limits and at font_size >= 18? (3) Are moving objects created AFTER t
 stage was put(), and do they stay inside the stage's drawn range? (4) Is there any text
 attached to a moving object? Remove it. (5) Does the beat end with self.wipe()?
 (6) Does each user-named concept have a beat? (7) Narration: is each entry 10-16 words,
-the total 55-80 words, and is every section duration >= words / 2.1 + 1.0 seconds, so
+the total 55-80 words, and is every section duration >= words / 2.3 + 1.0 seconds, so
 the narration ends before the section does? (8) Is every API call valid in ManimCE v0.21?
 
 OUTPUT: Return ONLY the Python code (the PLAN comment block, then imports, etc.). No
@@ -281,7 +281,7 @@ class Generated(Scene):
         self.add(dot)
         self.play(q.animate.set_value(3.0), run_time=4.5, rate_func=linear)
         self.wait(0.8)
-        self.wipe()   # 1.2 + 4.5 + 0.8 + 0.6 = 7.1s >= 12/2.1 + 1.0 = 6.7s
+        self.wipe()   # 1.2 + 4.5 + 0.8 + 0.6 = 7.1s >= 12/2.3 + 1.0 = 6.2s
 ~~~
 
 ==============================================================================
