@@ -105,3 +105,10 @@ name = "archimedes"
 prompt = "I want to really understand Archimedes' principle — why some things float and others sink, what buoyant force really is, how it relates to the weight of water being displaced, and why the same object can float in the ocean but sink in a swimming pool."
 depth = "standard"
 stresses = ["forces", "fluids", "density", "controlled-variables", "buoyancy"]
+
+[[topic]]
+id = "t14"
+name = "digestion"
+prompt = "How does the digestive system works — what actually happens to food from the moment I eat it, how the body breaks it down and absorbs nutrients, and where all the leftover waste goes."
+depth = "standard"
+stresses = ["process-flow", "biology", "sequence", "organs"]
