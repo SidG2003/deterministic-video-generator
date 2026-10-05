@@ -98,3 +98,10 @@ name = "pendulum"
 prompt = "Explain the time period and frequency of a pendulum, explaining the relation with respect to length of pendulum, mass of pendulum and gravity."
 depth = "standard"
 stresses = ["formulas", "controlled-variables", "physical-mechanism", "oscillation"]
+
+[[topic]]
+id = "t13"
+name = "archimedes"
+prompt = "I want to really understand Archimedes' principle — why some things float and others sink, what buoyant force really is, how it relates to the weight of water being displaced, and why the same object can float in the ocean but sink in a swimming pool."
+depth = "standard"
+stresses = ["forces", "fluids", "density", "controlled-variables", "buoyancy"]
