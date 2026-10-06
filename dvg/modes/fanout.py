@@ -162,7 +162,7 @@ def build_scene_prompt() -> str:
 
 
 SCENE_PROMPT_VERSION = "fanout-scene-v5"
-SCENE_PROMPT_SHA = "aa05b6c881ec"
+SCENE_PROMPT_SHA = "e901edec6140"
 
 
 def scene_prompt_version() -> str:

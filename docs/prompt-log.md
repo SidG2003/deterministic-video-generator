@@ -350,7 +350,7 @@ class Generated(ThreeDScene):
 ==============================================================================
 
 ## sectioned — v5
-- Tag: `sectioned — v5` · SHA-256 (12): `4c9fc9ff4eff`
+- Tag: `sectioned — v5` · SHA-256 (12): `6aff8d7038c8`
 - Date: 2026-10-06
 - Change: inherit the 50-60s target (theme.LENGTH_RULE 30-35 -> 50-60s, sections 5-7 -> 7-10) and the scaled narration budget in the shared base (per-section 12-18 -> 16-22 words, ~80 -> ~120 total). Supersedes sectioned-v4.
 - Why: owner wants ~50-60s videos across all three paths; the narration budget is scaled up with it so the voiceover still fills the longer film at ~2.1-2.2 words/s instead of leaving long silence.
@@ -400,7 +400,7 @@ LENGTH & PACING — the whole film should run about 50-60 seconds
 - Let each idea LAND. After a beat finishes, hold it long enough to actually read and
   absorb (about 1.5-2s), and use calm, unhurried run_times. Do not race through scenes
   or flash text — the viewer needs time on each one.
-- Reach the target by covering the idea across enough sections (usually about 7-10) with
+- Reach the target by covering the idea across enough sections (usually about 6-8) with
   these relaxed holds — not by padding with dead time, and not by cramming.
 
 LAYOUT & LEGIBILITY — ZERO UNINTENDED OVERLAP (as important as beauty)
@@ -660,7 +660,7 @@ Output ONLY the JSON object.
 ==============================================================================
 
 ## fanout-scene — v5
-- Tag: `fanout-scene — v5` · SHA-256 (12): `aa05b6c881ec`
+- Tag: `fanout-scene — v5` · SHA-256 (12): `e901edec6140`
 - Date: 2026-10-06
 - Change: inherit the scaled base (50-60s target + ~120-word narration budget). Supersedes fanout-scene-v4.
 - Why: owner wants ~50-60s videos across all three paths; the narration budget is scaled up with it so the voiceover still fills the longer film at ~2.1-2.2 words/s instead of leaving long silence.
@@ -710,7 +710,7 @@ LENGTH & PACING — the whole film should run about 50-60 seconds
 - Let each idea LAND. After a beat finishes, hold it long enough to actually read and
   absorb (about 1.5-2s), and use calm, unhurried run_times. Do not race through scenes
   or flash text — the viewer needs time on each one.
-- Reach the target by covering the idea across enough sections (usually about 7-10) with
+- Reach the target by covering the idea across enough sections (usually about 6-8) with
   these relaxed holds — not by padding with dead time, and not by cramming.
 
 LAYOUT & LEGIBILITY — ZERO UNINTENDED OVERLAP (as important as beauty)
