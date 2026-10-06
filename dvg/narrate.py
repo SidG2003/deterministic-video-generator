@@ -32,7 +32,7 @@ from html import escape
 from pathlib import Path
 
 _GAP_MS = 350  # silence between lines
-_TTS_CONCURRENCY = 5  # lines synthesized at once (each is an independent TTS job)
+_TTS_CONCURRENCY = 3  # lines synthesized at once (each is an independent TTS job)
 
 # Firefly 3p-audio (ElevenLabs) defaults — the endpoint/key/bearer come from .env.
 _FIREFLY_MODEL = "eleven_multilingual_v2"
@@ -108,7 +108,7 @@ def _firefly_line(text: str, out_path: Path, voice: str | None, timeout: int = 1
         "generationMetadata": {"module": "textToSpeech", "assetName": text[:40]},
     }
 
-    def _get(url, data=None):
+    def _get(url, data=None, _attempt=0):
         req = urllib.request.Request(url, data=data, headers=headers,
                                      method="POST" if data else "GET")
         try:
@@ -118,7 +118,15 @@ def _firefly_line(text: str, out_path: Path, voice: str | None, timeout: int = 1
             if e.code == 401:
                 raise NarrationError("Firefly auth failed (401) — FIREFLY_BEARER has likely "
                                      "expired; paste a fresh token into .env")
-            raise NarrationError(f"Firefly request failed ({e.code}): {e.read().decode()[:200]}")
+            # Back off and retry transient throttling / server errors (429, 5xx).
+            if e.code in (429, 500, 502, 503, 504) and _attempt < 6:
+                ra = e.headers.get("Retry-After")
+                wait = (float(ra) if ra and ra.replace(".", "", 1).isdigit()
+                        else min(2 ** _attempt, 30))
+                time.sleep(wait + 0.5)
+                return _get(url, data, _attempt + 1)
+            raise NarrationError(f"Firefly request failed ({e.code}): "
+                                 f"{e.read().decode(errors='replace')[:200]}")
 
     resp, posted = _get(endpoint, json.dumps(body).encode())
     retry = int(resp.headers.get("Retry-After") or 5)
