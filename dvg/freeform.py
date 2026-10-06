@@ -474,14 +474,16 @@ class Generated(Scene):
 
 
 def build_freeform_prompt() -> str:
-    """Freeform (baseline) system prompt. Self-contained (no theme/length injection)."""
-    return _PROMPT.strip()
+    """Freeform (baseline) system prompt. Currently the freeform-v6 themed base (by
+    request). To use the v8 plan-first prompt instead, return `_PROMPT.strip()` and
+    set the version/sha below to freeform-v8 (0db760c73eba)."""
+    return build_freeform_base()
 
 
 # Must match the newest "freeform" entry in docs/prompt-log.md. When _PROMPT changes,
 # log the new version (with its intent) first, then bump both the tag and the sha.
-FREEFORM_PROMPT_VERSION = "freeform-v8"
-FREEFORM_PROMPT_SHA = "0db760c73eba"
+FREEFORM_PROMPT_VERSION = "freeform-v6"
+FREEFORM_PROMPT_SHA = "d427f96fa7b6"
 
 
 def freeform_prompt_version() -> str:
