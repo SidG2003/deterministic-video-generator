@@ -112,3 +112,10 @@ name = "digestion"
 prompt = "How does the digestive system works — what actually happens to food from the moment I eat it, how the body breaks it down and absorbs nutrients, and where all the leftover waste goes."
 depth = "standard"
 stresses = ["process-flow", "biology", "sequence", "organs"]
+
+[[topic]]
+id = "t15"
+name = "archimedes-deep"
+prompt = "I want to understand Archimedes' principle start with the basic question of why some things float and others sink even when they're heavy, introduce the idea of buoyant force and how it comes from water pushing back on an object, connect that to the idea that the buoyant force equals the weight of the water displaced, use a clear example like a solid metal ball sinking versus a hollow ball of the same material floating, then extend it to why a massive steel ship can float on the ocean, touch on why the same object might float in the ocean but sink in a swimming pool due to water density and salt content, and end with a clear takeaway on how this single principle explains floating, sinking, and even how submarines control their depth."
+depth = "standard"
+stresses = ["forces", "fluids", "density", "controlled-variables", "buoyancy", "worked-example", "process-flow"]
