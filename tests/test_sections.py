@@ -29,6 +29,16 @@ def test_scan_getattr_allows_benign_blocks_escapes():
         with pytest.raises(FreeformError):
             scan_code(base + "x = " + bad + "\n")
 
+
+def test_scan_allows_name_dunder_blocks_other_dunders():
+    # type(t).__name__ (benign class-name string, used in the layout audit helper)
+    # is allowed; the escape dunders stay blocked.
+    base = "from manim import *\nclass Generated(Scene):\n    def construct(self): pass\n"
+    scan_code(base + "n = type(self).__name__\n")
+    for bad in ["o.__dict__", "o.__globals__", "o.__class__"]:
+        with pytest.raises(FreeformError):
+            scan_code(base + "x = " + bad + "\n")
+
 # A compact contract-following scene used as the base for the "bad" mutations.
 MINI = textwrap.dedent('''
     from manim import *
