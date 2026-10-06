@@ -10,3 +10,4 @@ __pycache__/
 # macOS + local reference media
 .DS_Store
 ref_fourier.mp4
+tmp_narrated_videos/
