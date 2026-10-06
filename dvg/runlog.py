@@ -82,6 +82,7 @@ class RunLogger:
         # so it is dropped from the leaf name). Easier to browse one kind at a time.
         self.dir = _unique_run_dir(Path(base) / mode, f"{now:%Y%m%d_%H%M%S}_{_slug(topic)}")
         self._start = time.perf_counter()
+        self._gen_end: float | None = None  # when generation+render finished (before narration)
         self.steps: list[dict] = []
         self.tokens: list[dict] = []
         self.artifacts: list[str] = []
@@ -119,6 +120,13 @@ class RunLogger:
         if report is None:
             return
         self.overlaps = {**({"attempt": attempt} if attempt is not None else {}), **report}
+
+    def mark_generation_end(self) -> None:
+        """Stop the generation+render clock. Call before post-processing steps that
+        should NOT count toward total_seconds — notably narration TTS, whose own
+        wall time is recorded separately in meta['narration']['tts_seconds']."""
+        if self._gen_end is None:
+            self._gen_end = time.perf_counter()
 
     def record_render_units(self, units: list[dict], strategy: str | None = None,
                             workers: int | None = None,
@@ -240,7 +248,8 @@ class RunLogger:
             "timestamp": self.timestamp,
             "success": success,
             "attempts": attempts,
-            "total_seconds": round(time.perf_counter() - self._start, 3),
+            "total_seconds": round((self._gen_end if self._gen_end is not None
+                                    else time.perf_counter()) - self._start, 3),
             "step_totals_seconds": totals,
             "cpu_count": os.cpu_count(),
             "total_cpu_seconds": total_cpu_seconds,

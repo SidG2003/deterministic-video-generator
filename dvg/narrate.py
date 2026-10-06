@@ -240,6 +240,9 @@ def apply_if_requested(args, logger) -> None:
     run — a TTS error is reported and the silent video is kept."""
     if not getattr(args, "narrate", False):
         return
+    # Freeze the generation+render clock here so TTS time is NOT added to
+    # total_seconds (it is recorded separately in meta['narration']['tts_seconds']).
+    logger.mark_generation_end()
     narration_path = logger.dir / "narration.json"
     video = logger.dir / "video.mp4"
     if not narration_path.exists() or not video.exists():
