@@ -172,9 +172,9 @@ NARRATION (required)
       ]
   One entry per section, in order — the voiceover script a narrator reads ALOUD.
   This is the spoken explanation, distinct from the short on-screen text.
-- KEEP IT SHORT: ONE short sentence per section (about 12-18 words), and about 80
+- KEEP IT SHORT: ONE short sentence per section (about 16-22 words), and about 120
   words for the whole script. The narration is read aloud as a voiceover that must
-  FIT the ~30-35s film at a natural speaking pace — a long script overruns the
+  FIT the ~50-60s film at a natural speaking pace — a long script overruns the
   video and gets cut off. Teach the idea in a tight sentence; do not write a
   paragraph. It must be a plain list of string literals and must NOT be referenced
   anywhere else in the code (it is metadata for a later voiceover).
@@ -245,18 +245,18 @@ def build_freeform_base() -> str:
 _PROMPT = r'''
 You are an expert science educator and ManimCE (v0.21) animator in the style of
 3Blue1Brown, with the visual ambition of a science documentary. Write ONE complete,
-runnable Manim scene that teaches the TOPIC in about 35 seconds (30-40s): a compressed
+runnable Manim scene that teaches the TOPIC in about 55 seconds (50-60s): a compressed
 textbook section that also gives the viewer a sense of awe.
 Priorities, in order: (1) correct, (2) clear, (3) complete, (4) spectacular.
 
 STEP 1: PLAN (a "# PLAN" comment block at the very top of the file, max 12 lines)
 - List every concept, variable, or relationship the user explicitly asked about.
   EACH ONE must get its own beat.
-- Order 4-6 beats using this spine (adapt as the topic requires):
+- Order 5-8 beats using this spine (adapt as the topic requires):
   hook/definition -> mechanism -> quantitative relationship (one variable per beat)
   -> consequence or common misconception -> one-line takeaway.
 - For each beat write: the 3D visual, the camera move, the single thing that changes,
-  its duration in seconds, and its narration word count. Durations must sum to 30-40.
+  its duration in seconds, and its narration word count. Durations must sum to 50-60.
   Check that duration >= words / 2.1 + 1.0 for every beat.
 
 TEACHING RULES
@@ -302,14 +302,14 @@ TEACHING RULES
 TIMING & NARRATION
 - NARRATION = list of 4-6 strings, one per section, in order. It is a plain list of
   string literals defined right after the imports and never referenced elsewhere.
-- BE BRIEF: each entry is ONE short line of 10-16 words (a sentence or a fragment).
-  Total 55-80 words for the whole film. Cut words before adding any.
+- BE BRIEF: each entry is ONE short line of 16-22 words (a sentence or a fragment).
+  Total 110-130 words for the whole film. Cut words before adding any.
 - Speaking pace is 2.0-2.2 words/second; plan with 2.1.
 - Narration must FINISH before its section ends and never run into the next one.
   For every section: section duration (sum of run_times + waits + the wipe time)
   >= words / 2.1 + 1.0 seconds. If the visuals need more time than the narration,
   that is fine (silence is OK). Extra words are not.
-- Total film: 30-40s.
+- Total film: 50-60s.
 
 LAYOUT & LEGIBILITY (overlap-free by construction)
 - NEVER position text with raw coordinates, to_edge, or next_to(a_large_object).
@@ -408,8 +408,8 @@ one zone, and are the zones used in a legal layout (A, B, or C)? (2) Is every te
 within the length limits and at font_size >= 18? (3) Are moving objects created AFTER
 the stage was built, and do they stay inside the stage sphere? (4) Is there any text
 attached to a 3D or moving object? Remove it. (5) Does the beat end with self.wipe()?
-(6) Does each user-named concept have a beat? (7) Narration: is each entry 10-16 words,
-the total 55-80 words, and is every section duration >= words / 2.1 + 1.0 seconds, so
+(6) Does each user-named concept have a beat? (7) Narration: is each entry 16-22 words,
+the total 110-130 words, and is every section duration >= words / 2.1 + 1.0 seconds, so
 the narration ends before the section does? (8) Is every API call valid in ManimCE
 v0.21? (9) Is the class a ThreeDScene, and does every beat with relevant spatial content
 use a real 3D object plus a purposeful camera move? (10) Is every
@@ -560,8 +560,8 @@ def build_freeform_prompt() -> str:
 
 # Must match the newest "freeform" entry in docs/prompt-log.md. When _PROMPT changes,
 # log the new version (with its intent) first, then bump both the tag and the sha.
-FREEFORM_PROMPT_VERSION = "freeform-v9"
-FREEFORM_PROMPT_SHA = "9ecb20637ed1"
+FREEFORM_PROMPT_VERSION = "freeform-v10"
+FREEFORM_PROMPT_SHA = "e1b2cecd8117"
 
 
 def freeform_prompt_version() -> str:

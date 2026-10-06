@@ -37,7 +37,7 @@ DEFAULT_PALETTE = {
 }
 DEFAULT_FONT_SIZES = {"title": 44, "body": 30, "label": 24}
 
-TARGET_SECONDS = (30, 35)
+TARGET_SECONDS = (50, 60)
 
 
 def _luminance(hex_color: str) -> float:
@@ -95,10 +95,10 @@ THEME & STYLE — do NOT make it look like a default Manim video (as important a
   buffers) and clear old text before new text enters the same area."""
 
 LENGTH_RULE = """\
-LENGTH & PACING — the whole film should run about 30-35 seconds
-- Aim for ~30-35s total, and prefer the upper end: slightly long is better than rushed.
+LENGTH & PACING — the whole film should run about 50-60 seconds
+- Aim for ~50-60s total, and prefer the upper end: slightly long is better than rushed.
 - Let each idea LAND. After a beat finishes, hold it long enough to actually read and
   absorb (about 1.5-2s), and use calm, unhurried run_times. Do not race through scenes
   or flash text — the viewer needs time on each one.
-- Reach the target by covering the idea across enough sections (usually about 5-7) with
+- Reach the target by covering the idea across enough sections (usually about 7-10) with
   these relaxed holds — not by padding with dead time, and not by cramming."""

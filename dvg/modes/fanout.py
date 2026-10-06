@@ -48,7 +48,7 @@ class FanoutError(FreeformError):
 # --- planner prompt (fanout-planner-v1) -------------------------------------
 
 _PLANNER_PROMPT = r"""
-You are the director of a short explainer film (~30-35 seconds total). Given a TOPIC
+You are the director of a short explainer film (~50-60 seconds total). Given a TOPIC
 and a depth, lay out the whole film as a plan that a team of animators will each build
 one scene from. Pick the few conceptual parts that matter most and give each its own
 scene — a clear, complete through-line that fits in half a minute, not a teaser and
@@ -72,7 +72,7 @@ Return ONE strict JSON object, and NOTHING else (no markdown fences, no prose):
       "goal": "what the viewer should learn in this scene",
       "visual": "the central visual metaphor / what is on screen",
       "on_screen_text": ["short", "phrases"],
-      "narration": "the spoken script for this scene (ONE short sentence, ~12-18 words)",
+      "narration": "the spoken script for this scene (ONE or two short sentences, ~16-22 words)",
       "scene_type": "Scene | MovingCameraScene | ThreeDScene",
       "enters_with": "empty stage",
       "leaves_with": "empty stage",
@@ -82,11 +82,11 @@ Return ONE strict JSON object, and NOTHING else (no markdown fences, no prose):
 }
 
 RULES
-- 3 to 6 scenes so the whole film fits ~30-35s. Ids unique (s01, s02, ...), in order.
+- 5 to 8 scenes so the whole film fits ~50-60s. Ids unique (s01, s02, ...), in order.
 - Open with a short title scene; build one idea per scene; end on the takeaway.
-- Keep narration VERY SHORT — ONE short sentence per scene (about 12-18 words), and
-  about 80 words across the whole film. The narration is read aloud as a voiceover
-  that must FIT the ~30-35s film at a natural pace; longer scripts overrun and get
+- Keep narration VERY SHORT — ONE or two short sentences per scene (about 16-22 words), and
+  about 120 words across the whole film. The narration is read aloud as a voiceover
+  that must FIT the ~50-60s film at a natural pace; longer scripts overrun and get
   cut off.
 - Every scene starts and ends on an empty stage (scenes are rendered separately and
   concatenated — nothing carries over).
@@ -107,8 +107,8 @@ def build_planner_prompt() -> str:
     return _PLANNER_PROMPT.strip()
 
 
-PLANNER_PROMPT_VERSION = "fanout-planner-v3"
-PLANNER_PROMPT_SHA = "c74c1f87d283"
+PLANNER_PROMPT_VERSION = "fanout-planner-v4"
+PLANNER_PROMPT_SHA = "144469d2d4b9"
 
 
 def planner_prompt_version() -> str:
@@ -161,8 +161,8 @@ def build_scene_prompt() -> str:
     return head + "\n\n" + tail
 
 
-SCENE_PROMPT_VERSION = "fanout-scene-v4"
-SCENE_PROMPT_SHA = "be4f0b45e42f"
+SCENE_PROMPT_VERSION = "fanout-scene-v5"
+SCENE_PROMPT_SHA = "aa05b6c881ec"
 
 
 def scene_prompt_version() -> str:
@@ -212,8 +212,8 @@ def validate_plan(data) -> list[str]:
     scenes = data.get("scenes")
     if not isinstance(scenes, list):
         return problems + ["'scenes' must be a list"]
-    if not (3 <= len(scenes) <= 6):
-        problems.append(f"'scenes' must have 3-6 entries (got {len(scenes)})")
+    if not (5 <= len(scenes) <= 8):
+        problems.append(f"'scenes' must have 5-8 entries (got {len(scenes)})")
     ids, heavy = set(), 0
     for i, s in enumerate(scenes):
         where = f"scenes[{i}]"

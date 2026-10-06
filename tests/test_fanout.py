@@ -27,15 +27,11 @@ def _good_plan():
             "transition": "fade",
         },
         "scenes": [
-            {"id": "s01", "goal": "intro", "visual": "a title", "on_screen_text": ["X"],
-             "narration": "Welcome.", "scene_type": "Scene", "enters_with": "empty stage",
-             "leaves_with": "empty stage", "complexity": "light"},
-            {"id": "s02", "goal": "mechanism", "visual": "boxes", "on_screen_text": ["a", "b"],
-             "narration": "It works like this.", "scene_type": "MovingCameraScene",
-             "enters_with": "empty stage", "leaves_with": "empty stage", "complexity": "medium"},
-            {"id": "s03", "goal": "recap", "visual": "a takeaway", "on_screen_text": ["done"],
-             "narration": "In short.", "scene_type": "Scene", "enters_with": "empty stage",
-             "leaves_with": "empty stage", "complexity": "light"},
+            {"id": f"s0{i}", "goal": "g", "visual": "v", "on_screen_text": ["x"],
+             "narration": "A short spoken line for this scene.", "scene_type": "Scene",
+             "enters_with": "empty stage", "leaves_with": "empty stage",
+             "complexity": "light"}
+            for i in range(1, 6)  # 5 scenes (valid: 5-8)
         ],
     }
 
@@ -46,8 +42,8 @@ def test_valid_plan_passes():
 
 def test_too_few_scenes():
     p = _good_plan()
-    p["scenes"] = p["scenes"][:2]
-    assert any("3-6" in m for m in fanout.validate_plan(p))
+    p["scenes"] = p["scenes"][:3]  # 3 scenes is now too few (needs 5-8)
+    assert any("5-8" in m for m in fanout.validate_plan(p))
 
 
 def test_duplicate_scene_ids():
