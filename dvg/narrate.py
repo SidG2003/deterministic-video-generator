@@ -27,10 +27,12 @@ import tempfile
 import time
 import urllib.error
 import urllib.request
+from concurrent.futures import ThreadPoolExecutor
 from html import escape
 from pathlib import Path
 
 _GAP_MS = 350  # silence between lines
+_TTS_CONCURRENCY = 5  # lines synthesized at once (each is an independent TTS job)
 
 # Firefly 3p-audio (ElevenLabs) defaults — the endpoint/key/bearer come from .env.
 _FIREFLY_MODEL = "eleven_multilingual_v2"
@@ -171,13 +173,25 @@ def build_voice_track(lines: list[str], out_wav: Path, voice: str | None = None,
 
     suffix = ".wav" if backend == "firefly" else ".aiff"
     tmp = Path(tempfile.mkdtemp(prefix="dvg_tts_"))
+
+    # Synthesize all lines CONCURRENTLY (each is an independent TTS job), then
+    # assemble the clips strictly in order. Cuts wall time from the sum of the
+    # lines to roughly the slowest single line.
+    clips = [tmp / f"line_{i:03d}{suffix}" for i in range(len(spoken))]
+    results: list[dict | None] = [None] * len(spoken)
+
+    def _one(i: int) -> tuple[int, dict]:
+        return i, synthesize_line(spoken[i], clips[i], voice, backend, speed)
+
+    workers = max(1, min(_TTS_CONCURRENCY, len(spoken)))
+    with ThreadPoolExecutor(max_workers=workers) as ex:
+        for i, res in ex.map(_one, range(len(spoken))):  # raises if any line failed
+            results[i] = res
+
     track = AudioSegment.silent(duration=0)
     gap = AudioSegment.silent(duration=gap_ms)
-    results: list[dict] = []
-    for i, line in enumerate(spoken):
-        clip_path = tmp / f"line_{i:03d}{suffix}"
-        results.append(synthesize_line(line, clip_path, voice, backend, speed))
-        track += AudioSegment.from_file(clip_path)
+    for i in range(len(spoken)):
+        track += AudioSegment.from_file(clips[i])
         if i < len(spoken) - 1:
             track += gap
     track.export(out_wav, format="wav")
